@@ -1,5 +1,6 @@
-cmake_minimum_required(VERSION 3.13)
+cmake_minimum_required(VERSION 3.10)
 project(snmp)
+set_property(GLOBAL PROPERTY RULE_LAUNCH_COMPILE "${CMAKE_COMMAND} -E time")
 SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pthread")
 set(CMAKE_CXX_STANDARD 11)
 set(BOOST_ROOT /home/user/boost_1_69_0)
@@ -12,7 +13,7 @@ include_directories(
         /usr/local/include/net-snmp
 
 )
-find_package(Boost COMPONENTS system filesystem regex thread REQUIRED)
+find_package(Boost COMPONENTS system filesystem regex thread log REQUIRED)
 if (Boost_FOUND)
 
     message(STATUS "Boost_INCLUDE_DIRS: ${Boost_INCLUDE_DIRS}")
@@ -62,6 +63,21 @@ target_link_libraries(ping
         /home/user/boost_1_69_0/stage/lib/libboost_system.a
         /home/user/boost_1_69_0/stage/lib/libboost_thread.a
         /home/user/boost_1_69_0/stage/lib/libboost_regex.a
+        /usr/local/lib/libnetsnmp.so
+        #        /usr/lib/x86_64-linux-gnu/libboost_system.so
+        #        /usr/lib/x86_64-linux-gnu/libboost_filesystem.so
+        #        ${Boost_LIBRARIES}
+        )
+project(monitor)
+add_executable(monitor monitor.cpp)
+set_target_properties(monitor PROPERTIES OUTPUT_NAME "MONITOR")
+target_link_libraries(monitor
+        /usr/local/lib/libbsoncxx.so.3.4.0
+        #/usr/local/lib/libbsoncxx.so._noabi
+        /usr/local/lib/libmongocxx.so._noabi
+        /home/user/boost_1_69_0/stage/lib/libboost_system.a
+        /home/user/boost_1_69_0/stage/lib/libboost_thread.a
+        /home/user/boost_1_69_0/stage/lib/libboost_log.a
         /usr/local/lib/libnetsnmp.so
         #        /usr/lib/x86_64-linux-gnu/libboost_system.so
         #        /usr/lib/x86_64-linux-gnu/libboost_filesystem.so
