@@ -24,13 +24,11 @@
 struct host {
     const char *name;
     const char *community;
-} hosts[] = {
-        {"192.168.88.1",   "public"},
-        {"192.168.88.148", "public"},
-        {"192.168.88.149", "public"},
-        {"169.237.31.33",  "public"},
-        {NULL}
-};
+} hosts[] = {{"192.168.88.1",   "public"},
+             {"192.168.88.148", "public"},
+             {"192.168.88.149", "public"},
+             {"169.237.31.33",  "public"},
+             {NULL}};
 
 /*
  * a list of variables to query for
@@ -39,16 +37,14 @@ struct oid_struct {
     const char *Name;
     oid Oid[MAX_OID_LEN];
     int OidLen;
-} oids[] = {
-        {".1.3.6.1.2.1.1.1.0"},
-        {".1.3.6.1.2.1.1.6.0"},
-        {"1.3.6.1.2.1.43.10.2.1.4.1.1"},
-        {"1.3.6.1.2.1.43.11.1.1.9.1.1"},
-        {"1.3.6.1.2.1.25.3.2.1.3.1"},
-        {"1.3.6.1.2.1.43.5.1.1.17.1"},
-        {"1.3.6.1.2.1.1.5.0"},
-        {NULL}
-};
+} oids[] = {{".1.3.6.1.2.1.1.1.0"},
+            {".1.3.6.1.2.1.1.6.0"},
+            {"1.3.6.1.2.1.43.10.2.1.4.1.1"},
+            {"1.3.6.1.2.1.43.11.1.1.9.1.1"},
+            {"1.3.6.1.2.1.25.3.2.1.3.1"},
+            {"1.3.6.1.2.1.43.5.1.1.17.1"},
+            {"1.3.6.1.2.1.1.5.0"},
+            {NULL}};
 
 /*
  * initialize
@@ -65,14 +61,15 @@ void initialize(void) {
     /* parse the oids */
     while (op->Name) {
         op->OidLen = sizeof(op->Oid) / sizeof(op->Oid[0]);
-        if (!read_objid(op->Name, op->Oid, reinterpret_cast<size_t *>(&op->OidLen))) {
+        if (!read_objid(op->Name, op->Oid,
+                        reinterpret_cast<size_t *>(&op->OidLen))) {
             snmp_perror("read_objid");
             exit(1);
         }
-//        if (!read_objid(op->Name, op->Oid, &op->OidLen)) {
-//            snmp_perror("read_objid");
-//            exit(1);
-//        }
+        //        if (!read_objid(op->Name, op->Oid, &op->OidLen)) {
+        //            snmp_perror("read_objid");
+        //            exit(1);
+        //        }
         op++;
     }
 }
@@ -103,10 +100,12 @@ int print_result(int status, struct snmp_session *sp, struct snmp_pdu *pdu) {
                 }
             } else {
                 for (ix = 1; vp && ix != pdu->errindex; vp = vp->next_variable, ix++);
-                if (vp) snprint_objid(buf, sizeof(buf), vp->name, vp->name_length);
-                else strcpy(buf, "(none)");
-                fprintf(stdout, "%s: %s: %s\n",
-                        sp->peername, buf, snmp_errstring(pdu->errstat));
+                if (vp)
+                    snprint_objid(buf, sizeof(buf), vp->name, vp->name_length);
+                else
+                    strcpy(buf, "(none)");
+                fprintf(stdout, "%s: %s: %s\n", sp->peername, buf,
+                        snmp_errstring(pdu->errstat));
             }
             return 1;
         case STAT_TIMEOUT:
@@ -131,7 +130,7 @@ void synchronous(void) {
         struct snmp_session ss, *sp;
         struct oid_struct *op;
 
-        snmp_sess_init(&ss);            /* initialize session */
+        snmp_sess_init(&ss); /* initialize session */
         ss.version = SNMP_VERSION_2c;
         ss.peername = strdup(hp->name);
         ss.community = reinterpret_cast<u_char *>(strdup(hp->community));
@@ -146,7 +145,8 @@ void synchronous(void) {
             req = snmp_pdu_create(SNMP_MSG_GET);
             snmp_add_null_var(req, op->Oid, op->OidLen);
             status = snmp_synch_response(sp, req, &resp);
-            if (!print_result(status, sp, resp)) break;
+            if (!print_result(status, sp, resp))
+                break;
             snmp_free_pdu(resp);
         }
         snmp_close(sp);
@@ -159,11 +159,11 @@ void synchronous(void) {
  * poll all hosts in parallel
  */
 struct session {
-    struct snmp_session *sess;        /* SNMP session data */
-    struct oid_struct *current_oid;        /* How far in our poll are we */
+    struct snmp_session *sess;      /* SNMP session data */
+    struct oid_struct *current_oid; /* How far in our poll are we */
 } sessions[sizeof(hosts) / sizeof(hosts[0])];
 
-int active_hosts;            /* hosts that we have not completed */
+int active_hosts; /* hosts that we have not completed */
 
 /*
  * response handler
@@ -175,10 +175,11 @@ int asynch_response(int operation, struct snmp_session *sp, int reqid,
 
     if (operation == NETSNMP_CALLBACK_OP_RECEIVED_MESSAGE) {
         if (print_result(STAT_SUCCESS, host->sess, pdu)) {
-            host->current_oid++;            /* send next GET (if any) */
+            host->current_oid++; /* send next GET (if any) */
             if (host->current_oid->Name) {
                 req = snmp_pdu_create(SNMP_MSG_GET);
-                snmp_add_null_var(req, host->current_oid->Oid, host->current_oid->OidLen);
+                snmp_add_null_var(req, host->current_oid->Oid,
+                                  host->current_oid->OidLen);
                 if (snmp_send(host->sess, req))
                     return 1;
                 else {
@@ -206,19 +207,19 @@ void asynchronous(void) {
     for (hs = sessions, hp = hosts; hp->name; hs++, hp++) {
         struct snmp_pdu *req;
         struct snmp_session sess;
-        snmp_sess_init(&sess);            /* initialize session */
+        snmp_sess_init(&sess); /* initialize session */
         sess.version = SNMP_VERSION_2c;
         sess.peername = strdup(hp->name);
         sess.community = reinterpret_cast<u_char *>(strdup(hp->community));
         sess.community_len = strlen(reinterpret_cast<const char *>(sess.community));
-        sess.callback = asynch_response;        /* default callback */
+        sess.callback = asynch_response; /* default callback */
         sess.callback_magic = hs;
         if (!(hs->sess = snmp_open(&sess))) {
             snmp_perror("snmp_open");
             continue;
         }
         hs->current_oid = oids;
-        req = snmp_pdu_create(SNMP_MSG_GET);    /* send the first GET */
+        req = snmp_pdu_create(SNMP_MSG_GET); /* send the first GET */
         snmp_add_null_var(req, hs->current_oid->Oid, hs->current_oid->OidLen);
         if (snmp_send(hs->sess, req))
             active_hosts++;
@@ -251,7 +252,8 @@ void asynchronous(void) {
     /* cleanup */
 
     for (hp = hosts, hs = sessions; hp->name; hs++, hp++) {
-        if (hs->sess) snmp_close(hs->sess);
+        if (hs->sess)
+            snmp_close(hs->sess);
     }
 }
 
