@@ -23,7 +23,7 @@ namespace posix_time = boost::posix_time;
 static const std::string BODY = "ping";
 static const auto PROCESS = getpid();
 
-vector<std::string> ipList;
+boost::container::vector<std::string> ipList;
 
 static int gSequence;
 static io_service gService;
@@ -35,6 +35,10 @@ void hello() { cout << "Hello" << endl; }
 
 static const int NETWORK = 1;
 
+void snmp_print(std::string result, int num) {
+    cout << "result " << result << endl;
+    cout << "num " << num << endl;
+}
 void initIPsList() {
     for (int i = 88; i < 89; ++i) {
         for (int j = 0; j < 255; ++j) {
@@ -54,7 +58,7 @@ void printIPList() {
 void StartReceive() {
     gSocket.async_receive_from(
             boost::asio::buffer(gReply), gReceiver,
-            [&](const error_code &error, size_t length) {
+            [&](const boost::system::error_code &error, size_t length) {
                 ipv4_header ipv4Hdr;
                 icmp_header icmpHdr;
                 std::string body(BODY.size(), 0);
@@ -84,6 +88,7 @@ void StartReceive() {
                     icmpHdr.identifier() == PROCESS &&
                     icmpHdr.sequence_number() == gSequence && body == BODY) {
                     cout << "    > " << ip << endl;
+
                 }
 
                 cout << endl;
@@ -91,9 +96,10 @@ void StartReceive() {
                 StartReceive();
             });
 }
+
 int main() {
     initIPsList();
-    printIPList();
+//    printIPList();
 
     // Ping
     icmp::resolver resolver(gService);
@@ -104,7 +110,7 @@ int main() {
     echoRequest.sequence_number(0);
     compute_checksum(echoRequest, BODY.begin(), BODY.end());
 
-    streambuf request;
+    boost::asio::streambuf request;
     std::ostream os(&request);
     os << echoRequest << BODY;
 
@@ -121,7 +127,7 @@ int main() {
 
     deadline_timer gTimer(gService);
     gTimer.expires_from_now(posix_time::millisec(1000));
-    gTimer.async_wait([&](error_code) { gService.stop(); });
+    gTimer.async_wait([&](boost::system::error_code) { gService.stop(); });
 
     gService.run();
     /*
