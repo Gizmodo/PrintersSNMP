@@ -1,3 +1,6 @@
+#include <net-snmp/net-snmp-config.h>
+#include <net-snmp/net-snmp-includes.h>
+
 #include "icmp_header.hpp"
 #include "ipv4_header.hpp"
 
@@ -9,6 +12,7 @@
 #include <sstream>
 #include <sys/types.h>
 #include <unistd.h>
+#include <definitions.h>
 
 using boost::asio::deadline_timer;
 using boost::asio::io_service;
@@ -31,6 +35,40 @@ static icmp::socket gSocket(gService, icmp::v4());
 static char gReply[65536];
 static icmp::endpoint gReceiver;
 
+struct oidStruct {
+    const char *Name;
+    oid Oid[MAX_OID_LEN];
+    int oidLen;
+};
+
+oidStruct oids[] = {{".1.3.6.1.2.1.1.1.0"},
+                    {".1.3.6.1.2.1.1.6.0"},
+                    {"1.3.6.1.2.1.43.10.2.1.4.1.1"},
+                    {"1.3.6.1.2.1.43.11.1.1.9.1.1"},
+                    {"1.3.6.1.2.1.25.3.2.1.3.1"},
+                    {"1.3.6.1.2.1.43.5.1.1.17.1"},
+                    {"1.3.6.1.2.1.1.5.0"},
+                    {NULL}};
+
+void initSNMP(void) {
+    struct oidStruct *os = oids;
+
+    init_snmp("monitor");
+
+    //parse oids
+    while (os->Name) {
+        os->oidLen = sizeof(os->Oid) / sizeof(os->Oid[0]);
+        if (!read_objid(os->Name, os->Oid,
+                        reinterpret_cast<size_t *>(&os->oidLen))) {
+            snmp_perror("read_objid");
+            exit(1);
+        }
+        os++;
+    }
+}
+
+void startSNMP();
+
 void hello() { cout << "Hello" << endl; }
 
 static const int NETWORK = 1;
@@ -39,6 +77,7 @@ void snmp_print(std::string result, int num) {
     cout << "result " << result << endl;
     cout << "num " << num << endl;
 }
+
 void initIPsList() {
     for (int i = 88; i < 89; ++i) {
         for (int j = 0; j < 255; ++j) {
@@ -88,13 +127,17 @@ void StartReceive() {
                     icmpHdr.identifier() == PROCESS &&
                     icmpHdr.sequence_number() == gSequence && body == BODY) {
                     cout << "    > " << ip << endl;
-
+                    startSNMP();
                 }
 
                 cout << endl;
 
                 StartReceive();
             });
+}
+
+void startSNMP() {
+
 }
 
 int main() {
