@@ -39,18 +39,6 @@ static icmp::endpoint gReceiver;
 static const int NETWORK = 1;
 
 /*
- * a list of hosts to query
- */
-struct host {
-  const char *name;
-  const char *community;
-} hosts[] = {{"192.168.88.1", "public"},
-             {"192.168.88.148", "public"},
-             {"192.168.88.149", "public"},
-             {"169.237.31.33", "public"},
-             {NULL}};
-
-/*
  * a list of variables to query for
  */
 struct oid_struct {
@@ -67,18 +55,10 @@ struct oid_struct {
     {.Name = ".1.3.6.1.2.1.43.11.1.1.9.1.1", .Description = {"TonerLevel"}},
     {NULL}};
 
-void startSNMP() {}
-
-/*
- * initialize
- */
-void initialize(void) {
+void startPing();
+void initOIDs(void) {
   struct oid_struct *op = oids;
 
-  /* Win32: init winsock */
-  SOCK_STARTUP;
-
-  /* initialize library */
   init_snmp("asynchapp");
 
   /* parse the oids */
@@ -93,9 +73,6 @@ void initialize(void) {
   }
 }
 
-/*
- * simple printing of returned data
- */
 int print_result(int status, struct snmp_session *sp, struct snmp_pdu *pdu,
                  std::string Name) {
   char buf[1024];
@@ -139,7 +116,7 @@ int print_result(int status, struct snmp_session *sp, struct snmp_pdu *pdu,
   return 0;
 }
 
-void synchronous1(std::string ip) {
+void startSNMP(std::string ip) {
   struct snmp_session ss, *sp;
   struct oid_struct *op;
   /*
@@ -174,11 +151,6 @@ void synchronous1(std::string ip) {
     snmp_free_pdu(resp);
   }
   snmp_close(sp);
-}
-
-void snmp_print(std::string result, int num) {
-  cout << "result " << result << endl;
-  cout << "num " << num << endl;
 }
 
 void initIPsList() {
@@ -230,8 +202,7 @@ void StartReceive() {
             icmpHdr.identifier() == PROCESS &&
             icmpHdr.sequence_number() == gSequence && body == BODY) {
           cout << "    > " << ip << endl;
-          startSNMP();
-          synchronous1(ip);
+          startSNMP(ip);
         }
 
         cout << endl;
@@ -241,11 +212,28 @@ void StartReceive() {
 }
 
 int main() {
-  initialize();
+  initOIDs();
   initIPsList();
-  //    printIPList();
+  //  printIPList();
+  startPing();
 
-  // Ping
+  /*
+  boost::thread my_thread(&hello);
+  my_thread.join();
+  BOOST_LOG_TRIVIAL(trace) << "A trace severity message";
+  BOOST_LOG_TRIVIAL(debug) << "A debug severity message";
+  BOOST_LOG_TRIVIAL(info) << "An informational severity message";
+  BOOST_LOG_TRIVIAL(warning) << "A warning severity message";
+  BOOST_LOG_TRIVIAL(error) << "An error severity message";
+  BOOST_LOG_TRIVIAL(fatal) << "A fatal severity message";
+  boost::container::vector<int> v;
+  for (int i = 0; i < 20; ++i) {
+      v.insert(v.begin(), i);
+  }
+   */
+  return 0;
+}
+void startPing() { // Ping
   icmp::resolver resolver(gService);
 
   icmp_header echoRequest;
@@ -274,20 +262,4 @@ int main() {
   gTimer.async_wait([&](boost::system::error_code) { gService.stop(); });
 
   gService.run();
-
-  /*
-  boost::thread my_thread(&hello);
-  my_thread.join();
-  BOOST_LOG_TRIVIAL(trace) << "A trace severity message";
-  BOOST_LOG_TRIVIAL(debug) << "A debug severity message";
-  BOOST_LOG_TRIVIAL(info) << "An informational severity message";
-  BOOST_LOG_TRIVIAL(warning) << "A warning severity message";
-  BOOST_LOG_TRIVIAL(error) << "An error severity message";
-  BOOST_LOG_TRIVIAL(fatal) << "A fatal severity message";
-  boost::container::vector<int> v;
-  for (int i = 0; i < 20; ++i) {
-      v.insert(v.begin(), i);
-  }
-   */
-  return 0;
 }
