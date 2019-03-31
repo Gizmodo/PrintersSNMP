@@ -83,3 +83,18 @@ target_link_libraries(monitor
         #        /usr/lib/x86_64-linux-gnu/libboost_filesystem.so
         #        ${Boost_LIBRARIES}
         )
+project(snmp_mongo)
+add_executable(snmp_mongo snmp_mongo.cpp)
+set_target_properties(snmp_mongo PROPERTIES OUTPUT_NAME "snmp_mongo")
+target_link_libraries(snmp_mongo
+        /usr/local/lib/libbsoncxx.so.3.4.0
+        #/usr/local/lib/libbsoncxx.so._noabi
+        /usr/local/lib/libmongocxx.so._noabi
+        /home/user/boost_1_69_0/stage/lib/libboost_system.a
+        /home/user/boost_1_69_0/stage/lib/libboost_thread.a
+        /home/user/boost_1_69_0/stage/lib/libboost_log.a
+        /usr/local/lib/libnetsnmp.so
+        #        /usr/lib/x86_64-linux-gnu/libboost_system.so
+        #        /usr/lib/x86_64-linux-gnu/libboost_filesystem.so
+        #        ${Boost_LIBRARIES}
+        )
