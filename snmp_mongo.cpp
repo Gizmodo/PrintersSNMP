@@ -25,6 +25,7 @@
 #include <unistd.h>
 
 #include <boost/container/vector.hpp>
+
 using namespace boost::container;
 using std::cout;
 using std::endl;
@@ -39,21 +40,22 @@ struct oid_struct {
   int OidLen;
   std::string Description;
 } oids[] = {
+    {.Name = ".1.3.6.1.2.1.25.3.2.1.3.1", .Description = {"Model"}},
     {.Name = ".1.3.6.1.2.1.43.10.2.1.4.1.1", .Description = {"Pages"}},
     {.Name = ".1.3.6.1.2.1.1.6.0", .Description = {"Location"}},
-    {.Name = ".1.3.6.1.2.1.25.3.2.1.3.1", .Description = {"Model"}},
     {.Name = ".1.3.6.1.2.1.1.5.0", .Description = {"Name"}},
     {.Name = ".1.3.6.1.2.1.43.5.1.1.17.1", .Description = {"SerialNumber"}},
     {.Name = ".1.3.6.1.2.1.43.11.1.1.9.1.1", .Description = {"TonerLevel"}},
     {NULL}};
+
 void initIPsList() {
-  for (int i = 88; i < 89; ++i) {
-    for (int j = 0; j < 255; ++j) {
-      ipList.push_back("192.168." + std::to_string(i) + "." +
-                       std::to_string(j));
+  for (int i = 0; i < 2; ++i) {
+    for (int j = 12; j < 255; ++j) {
+      ipList.push_back("10.159." + std::to_string(i) + "." + std::to_string(j));
     }
   }
 }
+
 int print_result(int status, struct snmp_session *sp, struct snmp_pdu *pdu,
                  std::string Name) {
   char buf[1024];
@@ -75,6 +77,12 @@ int print_result(int status, struct snmp_session *sp, struct snmp_pdu *pdu,
         snprint_variable(buf, sizeof(buf), vp->name, vp->name_length, vp);
         fprintf(stdout, "%s - %s: %s\n", Name.c_str(), sp->peername, buf);
         vp = vp->next_variable;
+        std::string str;
+        str = strdup(buf);
+        std::size_t found = str.find("No Such Object");
+        if (found != std::string::npos) {
+          return 3;
+        }
       }
     } else {
       for (ix = 1; vp && ix != pdu->errindex; vp = vp->next_variable, ix++)
@@ -96,6 +104,7 @@ int print_result(int status, struct snmp_session *sp, struct snmp_pdu *pdu,
   }
   return 0;
 }
+
 void startSNMP(std::string ip) {
   struct snmp_session ss, *sp;
   struct oid_struct *op;
@@ -124,12 +133,31 @@ void startSNMP(std::string ip) {
   for (op = oids; op->Name; op++) {
     struct snmp_pdu *req, *resp;
     int status;
+    int print_result_status = -1;
     req = snmp_pdu_create(SNMP_MSG_GET);
     snmp_add_null_var(req, op->Oid, op->OidLen);
     status = snmp_synch_response(sp, req, &resp);
-    if (!print_result(status, sp, resp, op->Description))
+    cout << ip << "\n";
+
+    switch (status) {
+    case 2:
+      cout << "Timeout"
+           << "\n";
       break;
+    case 1:
+           print_result_status = print_result(status, sp, resp, op->Description);
+      break;
+    case 0:
+
+      print_result_status = print_result(status, sp, resp, op->Description);
+      break;
+    default:
+      break;
+    }
+
     snmp_free_pdu(resp);
+    if (print_result_status == 3 || print_result_status == -1)
+      break;
   }
   snmp_close(sp);
 }
