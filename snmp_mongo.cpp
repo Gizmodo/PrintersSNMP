@@ -25,6 +25,11 @@
 #include <unistd.h>
 
 #include <boost/container/vector.hpp>
+#include <bsoncxx/builder/stream/document.hpp>
+#include <bsoncxx/json.hpp>
+
+#include <mongocxx/client.hpp>
+#include <mongocxx/instance.hpp>
 
 using namespace boost::container;
 using std::cout;
@@ -145,7 +150,7 @@ void startSNMP(std::string ip) {
            << "\n";
       break;
     case 1:
-           print_result_status = print_result(status, sp, resp, op->Description);
+      print_result_status = print_result(status, sp, resp, op->Description);
       break;
     case 0:
 
@@ -184,9 +189,27 @@ void initialize(void) {
 }
 
 /*****************************************************************************/
+void initializeMongo() {
+  mongocxx::instance inst{};
+  mongocxx::client conn{mongocxx::uri{}};
+
+  bsoncxx::builder::stream::document document{};
+
+  auto collection = conn["testdb"]["testcollection"];
+  document << "hello"
+           << "world";
+
+  collection.insert_one(document.view());
+  auto cursor = collection.find({});
+
+  for (auto &&doc : cursor) {
+    std::cout << bsoncxx::to_json(doc) << std::endl;
+  }
+}
 
 int main(int argc, char **argv) {
   initialize();
+  initializeMongo();
   initIPsList();
 
   for (const std::string ip : ipList) {
