@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.10)
 project(snmp)
 set_property(GLOBAL PROPERTY RULE_LAUNCH_COMPILE "${CMAKE_COMMAND} -E time")
 SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pthread")
+set(CMAKE_VERBOSE_MAKEFILE ON)
 set(CMAKE_CXX_STANDARD 11)
 set(BOOST_ROOT /home/user/boost_1_69_0)
 set(BOOST_INCLUDEDIR /home/user/boost_1_69_0)
@@ -13,7 +14,11 @@ include_directories(
         /usr/local/include/net-snmp
 
 )
-find_package(Boost COMPONENTS system filesystem regex thread log REQUIRED)
+set(Boost_USE_STATIC ON)
+set(Boost_USE_STATIC_LIBS ON)
+set(Boost_USE_MULTITHREADED ON)
+set(Boost_USE_STATIC_RUNTIME ON)
+find_package(Boost COMPONENTS log log_setup system filesystem date_time thread chrono REQUIRED)
 if (Boost_FOUND)
 
     message(STATUS "Boost_INCLUDE_DIRS: ${Boost_INCLUDE_DIRS}")
@@ -94,7 +99,4 @@ target_link_libraries(snmp_mongo
         /home/user/boost_1_69_0/stage/lib/libboost_thread.a
         /home/user/boost_1_69_0/stage/lib/libboost_log.a
         /usr/local/lib/libnetsnmp.so
-        #        /usr/lib/x86_64-linux-gnu/libboost_system.so
-        #        /usr/lib/x86_64-linux-gnu/libboost_filesystem.so
-        #        ${Boost_LIBRARIES}
         )
