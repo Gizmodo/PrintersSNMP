@@ -8,83 +8,36 @@
 #include <unistd.h>
 
 #include <boost/container/vector.hpp>
+#include <boost/date_time/posix_time/posix_time_types.hpp>
 #include <boost/format.hpp>
+#include <boost/log/attributes/named_scope.hpp>
 #include <boost/log/core.hpp>
 #include <boost/log/expressions.hpp>
+#include <boost/log/sinks/sync_frontend.hpp>
+#include <boost/log/sinks/text_ostream_backend.hpp>
+#include <boost/log/sources/logger.hpp>
 #include <boost/log/sources/record_ostream.hpp>
 #include <boost/log/sources/severity_channel_logger.hpp>
+#include <boost/log/support/date_time.hpp>
 #include <boost/log/trivial.hpp>
 #include <boost/log/utility/setup/common_attributes.hpp>
 #include <boost/log/utility/setup/console.hpp>
-#include <boost/log/utility/setup/file.hpp>
+#include <boost/shared_ptr.hpp>
 #include <boost/thread.hpp>
-
-#include <bsoncxx/builder/stream/document.hpp>
-#include <bsoncxx/json.hpp>
 
 #include <mongocxx/client.hpp>
 #include <mongocxx/instance.hpp>
 
-using boost::system::error_code;
-using namespace boost::container;
+#include <bsoncxx/builder/stream/document.hpp>
+#include <bsoncxx/json.hpp>
 
+using boost::system::error_code;
 using std::cout;
 using std::endl;
-namespace posix_time = boost::posix_time;
-namespace logging = boost::log;
-namespace src = boost::log::sources;
-namespace expr = boost::log::expressions;
-namespace keywords = boost::log::keywords;
-static const std::string BODY = "ping";
-static const auto PROCESS = getpid();
 
-boost::container::vector<std::string> ipList;
+boost::container::vector<std::string> IPs;
 
-static const int NETWORK = 1;
-//[ example_expressions_channel_severity_filter
-// We define our own severity levels
-enum severity_level { normal, notification, warning, error, critical };
-
-// Define the attribute keywords
-BOOST_LOG_ATTRIBUTE_KEYWORD(line_id, "LineID", unsigned int)
-BOOST_LOG_ATTRIBUTE_KEYWORD(severity, "Severity", severity_level)
-BOOST_LOG_ATTRIBUTE_KEYWORD(channel, "Channel", std::string)
-
-//<-
-std::ostream &operator<<(std::ostream &strm, severity_level level) {
-  static const char *strings[] = {"normal", "notification", "warning", "error",
-                                  "critical"};
-
-  if (static_cast<std::size_t>(level) < sizeof(strings) / sizeof(*strings))
-    strm << strings[level];
-  else
-    strm << static_cast<int>(level);
-
-  return strm;
-}
-//->
-
-// Define our logger type
-typedef src::severity_channel_logger<severity_level, std::string> logger_type;
-
-void test_logging(logger_type &lg, std::string const &channel_name) {
-  BOOST_LOG_CHANNEL_SEV(lg, channel_name, normal)
-      << "A normal severity level message";
-  BOOST_LOG_CHANNEL_SEV(lg, channel_name, notification)
-      << "A notification severity level message";
-  BOOST_LOG_CHANNEL_SEV(lg, channel_name, warning)
-      << "A warning severity level message";
-  BOOST_LOG_CHANNEL_SEV(lg, channel_name, error)
-      << "An error severity level message";
-  BOOST_LOG_CHANNEL_SEV(lg, channel_name, critical)
-      << "A critical severity level message";
-}
-//]
-
-/*
- * a list of variables to query for
- */
-struct oid_struct {
+struct oidStruct {
   const char *Name;
   oid Oid[MAX_OID_LEN];
   int OidLen;
@@ -100,122 +53,57 @@ struct oid_struct {
 
 void initIP(bool devMode) {
   if (devMode) {
-    ipList.push_back("192.168.88.1");
-    ipList.push_back("192.168.88.251");
+    IPs.push_back("192.168.88.1");
+    IPs.push_back("192.168.88.251");
   } else {
     for (int i = 88; i < 89; ++i) {
       for (int j = 0; j < 255; ++j) {
-        ipList.push_back("192.168." + std::to_string(i) + "." +
-                         std::to_string(j));
+        IPs.push_back("192.168." + std::to_string(i) + "." + std::to_string(j));
       }
     }
   }
 }
 
-int print_result(int status, struct snmp_session *sp, struct snmp_pdu *pdu,
-                 std::string Name) {
-  char buf[1024];
-  struct variable_list *vp;
-  int ix;
-  struct timeval now;
-  struct timezone tz;
-  struct tm *tm;
-
-  gettimeofday(&now, &tz);
-  tm = localtime(&now.tv_sec);
-  fprintf(stdout, "%.2d:%.2d:%.2d.%.6ld ", tm->tm_hour, tm->tm_min, tm->tm_sec,
-          now.tv_usec);
-  switch (status) {
-  case STAT_SUCCESS:
-    vp = pdu->variables;
-    if (pdu->errstat == SNMP_ERR_NOERROR) {
-      int count = 1;
-      while (vp) {
-        snprint_variable(buf, sizeof(buf), vp->name, vp->name_length, vp);
-        fprintf(stdout, "%s - %s: %s\n", Name.c_str(), sp->peername, buf);
-        //***********************************************************************************
-        if (vp->type == ASN_OCTET_STR) {
-          char *stp = static_cast<char *>(malloc(1 + vp->val_len));
-          memcpy(stp, vp->val.string, vp->val_len);
-          stp[vp->val_len] = '\0';
-          printf("value #%d is a string: %s\n", count++, stp);
-          free(stp);
-        } else {
-          printf("value #%d is NOT a string! Ack!\n", count++);
-        }
-        //***********************************************************************************
-        vp = vp->next_variable;
-        std::string str;
-        str = strdup(buf);
-        std::size_t found = str.find("No Such Object");
-        if (found != std::string::npos) {
-          return 3;
-        }
-      }
-    } else {
-      for (ix = 1; vp && ix != pdu->errindex; vp = vp->next_variable, ix++)
-        ;
-      if (vp)
-        snprint_objid(buf, sizeof(buf), vp->name, vp->name_length);
-      else
-        strcpy(buf, "(none)");
-      fprintf(stdout, "%s: %s: %s\n", sp->peername, buf,
-              snmp_errstring(pdu->errstat));
-    }
-    return 1;
-  case STAT_TIMEOUT:
-    fprintf(stdout, "%s: Timeout\n", sp->peername);
-    return 0;
-  case STAT_ERROR:
-    snmp_perror(sp->peername);
-    return 0;
-  }
-  return 0;
-}
 int print_result_new(int status, struct snmp_session *sp, struct snmp_pdu *pdu,
                      std::string Name) {
   char buf[1024];
   struct variable_list *vp;
-  int ix;
-  struct timeval now;
-  struct timezone tz;
-  struct tm *tm;
 
-  gettimeofday(&now, &tz);
-  tm = localtime(&now.tv_sec);
-  fprintf(stdout, "%.2d:%.2d:%.2d.%.6ld ", tm->tm_hour, tm->tm_min, tm->tm_sec,
-          now.tv_usec);
   switch (status) {
   case STAT_SUCCESS:
     vp = pdu->variables;
     if (pdu->errstat == SNMP_ERR_NOERROR) {
-      int count = 1;
-      while (vp) {
-        snprint_variable(buf, sizeof(buf), vp->name, vp->name_length, vp);
-        fprintf(stdout, "%s - %s: %s\n", Name.c_str(), sp->peername, buf);
-        //***********************************************************************************
-        if (vp->type == ASN_OCTET_STR) {
-          char *stp = static_cast<char *>(malloc(1 + vp->val_len));
-          memcpy(stp, vp->val.string, vp->val_len);
-          stp[vp->val_len] = '\0';
+      snprint_variable(buf, sizeof(buf), vp->name, vp->name_length, vp);
+      // fprintf(stdout, "%s - %s: %s\n", Name.c_str(), sp->peername, buf);
+      if (vp->type == ASN_OCTET_STR) {
+        char *stp = static_cast<char *>(malloc(1 + vp->val_len));
+        memcpy(stp, vp->val.string, vp->val_len);
+        stp[vp->val_len] = '\0';
 
-          BOOST_LOG_TRIVIAL(debug)
-              << boost::format("value #%d is a string: %s") % count++ % stp;
-          free(stp);
-        } else {
-          printf("value #%d is NOT a string! Ack!", count++);
-          return -1;
-        }
-        //***********************************************************************************
-        vp = vp->next_variable;
-        std::string str;
-        str = strdup(buf);
+        // Check for null of No OID string
+        std::string str = strdup(buf);
         std::size_t found = str.find("No Such Object");
-        if (found != std::string::npos) {
-          return 3;
+        if (found != std::string::npos || vp->val_len == 0) {
+          BOOST_LOG_TRIVIAL(error)
+              << boost::format(" %s: is empty or not a printer") % Name;
+          return -1;
+        } else {
+          BOOST_LOG_TRIVIAL(debug) << boost::format(" %s: %s") % Name % stp;
+        }
+        free(stp);
+      } else {
+        if (vp->type == ASN_INTEGER) {
+          long intval;
+          intval = *((long *)vp->val.integer);
+          BOOST_LOG_TRIVIAL(debug) << boost::format(" %s: %d") % Name % intval;
+        } else {
+          BOOST_LOG_TRIVIAL(error)
+              << boost::format(" %s: %d") % Name % vp->type;
         }
       }
     } else {
+      BOOST_LOG_TRIVIAL(error) << boost::format("SNMP_ERR_NOERROR");
+      int ix;
       for (ix = 1; vp && ix != pdu->errindex; vp = vp->next_variable, ix++)
         ;
       if (vp)
@@ -227,18 +115,21 @@ int print_result_new(int status, struct snmp_session *sp, struct snmp_pdu *pdu,
     }
     return 1;
   case STAT_TIMEOUT:
-    fprintf(stdout, "%s: Timeout\n", sp->peername);
-    return 0;
+    BOOST_LOG_TRIVIAL(debug)
+        << boost::format("STAT_TIMEOUT: %s") % sp->peername;
+    return -1;
   case STAT_ERROR:
+    BOOST_LOG_TRIVIAL(error) << boost::format("STAT_ERROR: %s") % sp->peername;
     snmp_perror(sp->peername);
-    return 0;
+    return -1;
+  default:
+    return -1;
   }
-  return 0;
 }
 
 void startSNMP(std::string ip) {
   struct snmp_session ss, *sp;
-  struct oid_struct *op;
+  struct oidStruct *op;
   /*
 
     // std::string to char * with boost::scoped_array
@@ -259,10 +150,9 @@ void startSNMP(std::string ip) {
   ss.timeout = 100000;
   if (!(sp = snmp_open(&ss))) {
     snmp_perror("snmp_open");
-    BOOST_LOG_TRIVIAL(debug) << boost::format("Device %s offline") % ip;
-    // continue;
+    BOOST_LOG_TRIVIAL(debug) << boost::format("%s offline") % ip;
   } else {
-    BOOST_LOG_TRIVIAL(debug) << boost::format("Device %s online") % ip;
+    BOOST_LOG_TRIVIAL(debug) << boost::format("%s online") % ip;
 
     for (op = oids; op->Name; op++) {
       struct snmp_pdu *req, *resp;
@@ -274,29 +164,21 @@ void startSNMP(std::string ip) {
 
       switch (status) {
       case 2:
-        cout << "Timeout"
-             << "\n";
+        BOOST_LOG_TRIVIAL(debug) << boost::format("%s timeout") % ip;
+        print_result_status = -1;
         break;
+      case 0:
       case 1:
         print_result_status =
             print_result_new(status, sp, resp, op->Description);
         break;
-      case 0:
-        print_result_status =
-            print_result_new(status, sp, resp, op->Description);
-        break;
       default:
+        print_result_status = -1;
         break;
-        // After first model response check for continue other oids
-        if (print_result_status == -1) {
-          BOOST_LOG_TRIVIAL(debug)
-              << boost::format("Device %s is not a printer") % ip;
-          break;
-        }
       }
 
       snmp_free_pdu(resp);
-      if (status == 2 || print_result_status == 3 || print_result_status == -1)
+      if (print_result_status == -1)
         break;
     }
   }
@@ -304,7 +186,7 @@ void startSNMP(std::string ip) {
 }
 
 void parseOid(void) {
-  struct oid_struct *op = oids;
+  struct oidStruct *op = oids;
   init_snmp("asynchapp");
 
   /* parse the oids */
@@ -319,7 +201,6 @@ void parseOid(void) {
   }
 }
 
-/*****************************************************************************/
 void initMongo() {
   mongocxx::instance inst{};
   mongocxx::client conn{mongocxx::uri{}};
@@ -339,39 +220,43 @@ void initMongo() {
 }
 
 void scanSNMP() {
-  for (const std::string ip : ipList) {
+  for (const std::string ip : IPs) {
     startSNMP(ip);
   }
 }
-void initLog() {
-  // Create a minimal severity table filter
-  typedef expr::channel_severity_filter_actor<std::string, severity_level>
-      min_severity_filter;
-  min_severity_filter min_severity =
-      expr::channel_severity_filter(channel, severity);
 
-  // Set up the minimum severity levels for different channels
-  min_severity["general"] = notification;
-  min_severity["network"] = warning;
-  min_severity["gui"] = error;
+static void initLog(void) {
+  boost::log::add_common_attributes();
+  boost::log::core::get()->add_global_attribute(
+      "Scope", boost::log::attributes::named_scope());
+  boost::log::core::get()->set_filter(boost::log::trivial::severity >=
+                                      boost::log::trivial::trace);
 
-  logging::add_console_log(
-      std::clog, keywords::filter = min_severity || severity >= critical,
-      keywords::format = (expr::stream << line_id << ": <" << severity << "> ["
-                                       << channel << "] " << expr::smessage));
+  auto fmtTimeStamp =
+      boost::log::expressions::format_date_time<boost::posix_time::ptime>(
+          "TimeStamp", "%d.%m.%Y %H:%M:%S");
+  auto fmtThreadId = boost::log::expressions::attr<
+      boost::log::attributes::current_thread_id::value_type>("ThreadID");
+  auto fmtSeverity =
+      boost::log::expressions::attr<boost::log::trivial::severity_level>(
+          "Severity");
+  auto fmtScope = boost::log::expressions::format_named_scope(
+      "Scope", boost::log::keywords::format = "%n(%f:%l)",
+      boost::log::keywords::iteration = boost::log::expressions::reverse,
+      boost::log::keywords::depth = 2);
+  boost::log::formatter logFmt =
+      boost::log::expressions::format("[%1%] [%2%] %3%") % fmtTimeStamp %
+      fmtSeverity % boost::log::expressions::smessage;
+
+  /* console sink */
+  auto consoleSink = boost::log::add_console_log(std::clog);
+  consoleSink->set_formatter(logFmt);
 }
+
 int main(int argc, char **argv) {
   initLog();
-  logging::add_common_attributes();
-
-  logger_type lg;
-  test_logging(lg, "general");
-  test_logging(lg, "network");
-  test_logging(lg, "gui");
-  test_logging(lg, "filesystem");
-
   parseOid();
-  initMongo();
+  //  initMongo();
   initIP(true);
   scanSNMP();
   return 0;
