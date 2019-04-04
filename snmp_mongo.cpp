@@ -1,12 +1,7 @@
 #include <net-snmp/net-snmp-config.h>
 #include <net-snmp/net-snmp-includes.h>
 
-#include <definitions.h>
-#include <iostream>
-#include <sstream>
-#include <sys/types.h>
-#include <unistd.h>
-
+#include <boost/algorithm/string.hpp>
 #include <boost/container/vector.hpp>
 #include <boost/date_time/posix_time/posix_time_types.hpp>
 #include <boost/format.hpp>
@@ -24,6 +19,11 @@
 #include <boost/log/utility/setup/console.hpp>
 #include <boost/shared_ptr.hpp>
 #include <boost/thread.hpp>
+#include <definitions.h>
+#include <iostream>
+#include <sstream>
+#include <sys/types.h>
+#include <unistd.h>
 
 #include <mongocxx/client.hpp>
 #include <mongocxx/instance.hpp>
@@ -82,7 +82,11 @@ int print_result_new(int status, struct snmp_session *sp, struct snmp_pdu *pdu,
 
         // Check for null of No OID string
         std::string str = strdup(buf);
+        boost::trim(str);
+        boost::trim(stp);
+
         std::size_t found = str.find("No Such Object");
+
         if (found != std::string::npos || vp->val_len == 0) {
           BOOST_LOG_TRIVIAL(error)
               << boost::format(" %s: is empty or not a printer") % Name;

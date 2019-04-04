@@ -8,6 +8,8 @@
 
 #include <boost/asio.hpp>
 #include <boost/container/vector.hpp>
+#include <boost/log/common.hpp>
+#include <boost/log/core.hpp>
 #include <boost/log/trivial.hpp>
 #include <boost/thread.hpp>
 #include <definitions.h>
@@ -212,25 +214,21 @@ void StartReceive() {
 }
 
 int main() {
-  initOIDs();
+  /* initOIDs();
   initIPsList();
   //  printIPList();
   startPing();
+*/
 
-  /*
-  boost::thread my_thread(&hello);
-  my_thread.join();
+//  boost::thread my_thread(&hello);
+//  my_thread.join();
   BOOST_LOG_TRIVIAL(trace) << "A trace severity message";
   BOOST_LOG_TRIVIAL(debug) << "A debug severity message";
   BOOST_LOG_TRIVIAL(info) << "An informational severity message";
   BOOST_LOG_TRIVIAL(warning) << "A warning severity message";
   BOOST_LOG_TRIVIAL(error) << "An error severity message";
   BOOST_LOG_TRIVIAL(fatal) << "A fatal severity message";
-  boost::container::vector<int> v;
-  for (int i = 0; i < 20; ++i) {
-      v.insert(v.begin(), i);
-  }
-   */
+
   return 0;
 }
 void startPing() { // Ping
