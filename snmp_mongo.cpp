@@ -46,15 +46,67 @@ struct oidStruct {
     {.Name = ".1.3.6.1.2.1.25.3.2.1.3.1", .Description = {"Model"}},
     {.Name = ".1.3.6.1.2.1.43.10.2.1.4.1.1", .Description = {"Pages"}},
     {.Name = ".1.3.6.1.2.1.1.6.0", .Description = {"Location"}},
-    {.Name = ".1.3.6.1.2.1.1.5.0", .Description = {"Name"}},
-    {.Name = ".1.3.6.1.2.1.43.5.1.1.17.1", .Description = {"SerialNumber"}},
+    {.Name = ".1.3.6.1.2.1.1.5.0", .Description = {"Device name"}},
+    {.Name = ".1.3.6.1.2.1.43.5.1.1.16.1", .Description = {"Device model"}},
+    {.Name = ".1.3.6.1.2.1.43.8.2.1.14.1.1",
+     .Description = {"Device Manufacturer"}},
+
+    {.Name = ".1.3.6.1.2.1.43.5.1.1.17.1",
+     .Description = {"Device Serial Number"}},
     {.Name = ".1.3.6.1.2.1.43.11.1.1.9.1.1", .Description = {"TonerLevel"}},
+    {.Name = ".1.3.6.1.2.1.43.11.1.1.8.1.1",
+     .Description = {"Toner print capacity"}},
+
     {NULL}};
 
 void initIP(bool devMode) {
   if (devMode) {
     IPs.push_back("192.168.88.1");
     IPs.push_back("192.168.88.251");
+    IPs.push_back("183.108.188.25");
+    IPs.push_back("169.237.117.47");
+    IPs.push_back("183.108.188.25");
+    IPs.push_back("58.137.51.68");
+    IPs.push_back("103.210.24.244");
+    IPs.push_back("107.211.249.156");
+    IPs.push_back("115.160.56.153");
+    IPs.push_back("118.128.78.196");
+    IPs.push_back("121.137.133.227");
+    IPs.push_back("121.143.103.125");
+    IPs.push_back("134.255.76.46");
+    IPs.push_back("134.255.76.46");
+    IPs.push_back("137.26.143.186");
+    IPs.push_back("153.19.67.9");
+    IPs.push_back("163.19.200.141");
+    IPs.push_back("163.27.162.109");
+    IPs.push_back("163.27.162.61");
+    IPs.push_back("173.19.94.142");
+    IPs.push_back("18.127.2.4");
+    IPs.push_back("182.31.30.55");
+    IPs.push_back("183.98.155.134");
+    IPs.push_back("193.198.100.138");
+    IPs.push_back("193.198.100.138");
+    IPs.push_back("193.198.93.14");
+    IPs.push_back("195.96.231.88");
+    IPs.push_back("197.50.226.137");
+    IPs.push_back("197.50.227.149");
+    IPs.push_back("200.6.169.149");
+    IPs.push_back("202.172.107.201");
+    IPs.push_back("203.253.251.146");
+    IPs.push_back("206.126.42.241");
+    IPs.push_back("210.179.32.162");
+    IPs.push_back("211.40.127.253");
+    IPs.push_back("24.213.57.102");
+    IPs.push_back("47.144.13.89");
+    IPs.push_back("5.148.131.50");
+    IPs.push_back("58.181.35.141");
+    IPs.push_back("64.185.36.123");
+    IPs.push_back("66.210.225.179");
+    IPs.push_back("80.11.188.182");
+    IPs.push_back("90.152.31.213");
+    IPs.push_back("95.97.141.123");
+    IPs.push_back("96.91.105.110");
+    IPs.push_back("98.155.108.21");
   } else {
     for (int i = 88; i < 89; ++i) {
       for (int j = 0; j < 255; ++j) {
@@ -63,7 +115,23 @@ void initIP(bool devMode) {
     }
   }
 }
-
+void strtrim(char *str) {
+  int start = 0; // number of leading spaces
+  char *buffer = str;
+  while (*str && *str++ == ' ')
+    ++start;
+  while (*str++)
+    ; // move to end of string
+  int end = str - buffer - 1;
+  while (end > 0 && buffer[end - 1] == ' ')
+    --end;         // backup over trailing spaces
+  buffer[end] = 0; // remove trailing spaces
+  if (end <= start || start == 0)
+    return; // exit if no leading spaces or string is now empty
+  str = buffer + start;
+  while ((*buffer++ = *str++))
+    ; // remove leading spaces: K&R
+}
 int print_result_new(int status, struct snmp_session *sp, struct snmp_pdu *pdu,
                      std::string Name) {
   char buf[1024];
@@ -74,36 +142,51 @@ int print_result_new(int status, struct snmp_session *sp, struct snmp_pdu *pdu,
     vp = pdu->variables;
     if (pdu->errstat == SNMP_ERR_NOERROR) {
       snprint_variable(buf, sizeof(buf), vp->name, vp->name_length, vp);
-      // fprintf(stdout, "%s - %s: %s\n", Name.c_str(), sp->peername, buf);
-      if (vp->type == ASN_OCTET_STR) {
+      //   fprintf(stdout, "%s - %s: %s\n", Name.c_str(), sp->peername, buf);
+
+      switch (vp->type) {
+      case 129: {
+        // No Such ...
+        BOOST_LOG_TRIVIAL(warning)
+            << boost::format(" No Such ... %s: %d") % Name % vp->type;
+        break;
+      }
+      case ASN_OCTET_STR: {
         char *stp = static_cast<char *>(malloc(1 + vp->val_len));
         memcpy(stp, vp->val.string, vp->val_len);
         stp[vp->val_len] = '\0';
 
         // Check for null of No OID string
-        std::string str = strdup(buf);
+        std::string str =
+            strdup(reinterpret_cast<const char *>(vp->val.string));
         boost::trim(str);
-        boost::trim(stp);
+        //        boost::algorithm::is_lower(str);
+        strtrim(stp);
 
-        std::size_t found = str.find("No Such Object");
+        size_t found = str.find("No Such");
 
-        if (found != std::string::npos || vp->val_len == 0) {
-          BOOST_LOG_TRIVIAL(error)
-              << boost::format(" %s: is empty or not a printer") % Name;
+        if ((found != std::string::npos || vp->val_len == 0) &&
+            Name == "Model") {
+          BOOST_LOG_TRIVIAL(warning)
+              << boost::format(" %s: not a printer") % Name;
           return -1;
         } else {
-          BOOST_LOG_TRIVIAL(debug) << boost::format(" %s: %s") % Name % stp;
+          BOOST_LOG_TRIVIAL(info) << boost::format(" %s: %s") % Name % stp;
         }
         free(stp);
-      } else {
-        if (vp->type == ASN_INTEGER) {
-          long intval;
-          intval = *((long *)vp->val.integer);
-          BOOST_LOG_TRIVIAL(debug) << boost::format(" %s: %d") % Name % intval;
-        } else {
-          BOOST_LOG_TRIVIAL(error)
-              << boost::format(" %s: %d") % Name % vp->type;
-        }
+        break;
+      }
+      case ASN_INTEGER:
+      case ASN_COUNTER: {
+        long intval;
+        intval = *((long *)vp->val.integer);
+        BOOST_LOG_TRIVIAL(info) << boost::format(" %s: %d") % Name % intval;
+        break;
+      }
+      default:
+        BOOST_LOG_TRIVIAL(warning)
+            << boost::format(" default ... %s: %d") % Name % vp->type;
+        break;
       }
     } else {
       BOOST_LOG_TRIVIAL(error) << boost::format("SNMP_ERR_NOERROR");
@@ -152,6 +235,8 @@ void startSNMP(std::string ip) {
   ss.community = (u_char *)"public";
   ss.community_len = strlen("public");
   ss.timeout = 100000;
+  BOOST_LOG_TRIVIAL(warning)
+      << boost::format("<---------------------------------->");
   if (!(sp = snmp_open(&ss))) {
     snmp_perror("snmp_open");
     BOOST_LOG_TRIVIAL(debug) << boost::format("%s offline") % ip;
