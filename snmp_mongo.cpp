@@ -44,19 +44,9 @@ struct oidStruct {
   std::string Description;
 } oids[] = {
     {.Name = ".1.3.6.1.2.1.25.3.2.1.3.1", .Description = {"Model"}},
+    {.Name = ".1.3.6.1.2.1.43.5.1.1.17.1", .Description = {"Serial Number"}},
     {.Name = ".1.3.6.1.2.1.43.10.2.1.4.1.1", .Description = {"Pages"}},
     {.Name = ".1.3.6.1.2.1.1.6.0", .Description = {"Location"}},
-    {.Name = ".1.3.6.1.2.1.1.5.0", .Description = {"Device name"}},
-    {.Name = ".1.3.6.1.2.1.43.5.1.1.16.1", .Description = {"Device model"}},
-    {.Name = ".1.3.6.1.2.1.43.8.2.1.14.1.1",
-     .Description = {"Device Manufacturer"}},
-
-    {.Name = ".1.3.6.1.2.1.43.5.1.1.17.1",
-     .Description = {"Device Serial Number"}},
-    {.Name = ".1.3.6.1.2.1.43.11.1.1.9.1.1", .Description = {"TonerLevel"}},
-    {.Name = ".1.3.6.1.2.1.43.11.1.1.8.1.1",
-     .Description = {"Toner print capacity"}},
-
     {NULL}};
 
 void initIP(bool devMode) {
