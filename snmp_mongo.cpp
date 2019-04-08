@@ -1,6 +1,15 @@
 #include <net-snmp/net-snmp-config.h>
 #include <net-snmp/net-snmp-includes.h>
 
+#include <bsoncxx/builder/stream/document.hpp>
+#include <bsoncxx/decimal128.hpp>
+#include <bsoncxx/exception/exception.hpp>
+#include <bsoncxx/json.hpp>
+#include <bsoncxx/types.hpp>
+
+#include <mongocxx/client.hpp>
+#include <mongocxx/instance.hpp>
+
 #include <boost/algorithm/string.hpp>
 #include <boost/container/vector.hpp>
 #include <boost/date_time/posix_time/posix_time_types.hpp>
@@ -25,12 +34,6 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#include <mongocxx/client.hpp>
-#include <mongocxx/instance.hpp>
-
-#include <bsoncxx/builder/stream/document.hpp>
-#include <bsoncxx/json.hpp>
-
 using boost::system::error_code;
 using std::cout;
 using std::endl;
@@ -42,12 +45,58 @@ struct oidStruct {
   oid Oid[MAX_OID_LEN];
   int OidLen;
   std::string Description;
-} oids[] = {
-    {.Name = ".1.3.6.1.2.1.25.3.2.1.3.1", .Description = {"Model"}},
-    {.Name = ".1.3.6.1.2.1.43.5.1.1.17.1", .Description = {"Serial Number"}},
-    {.Name = ".1.3.6.1.2.1.43.10.2.1.4.1.1", .Description = {"Pages"}},
-    {.Name = ".1.3.6.1.2.1.1.6.0", .Description = {"Location"}},
-    {NULL}};
+} oids[] = {{.Name = ".1.3.6.1.2.1.25.3.2.1.3.1", .Description = {"Model"}},
+            {.Name = ".1.3.6.1.2.1.43.5.1.1.17.1", .Description = {"SN"}},
+            {.Name = ".1.3.6.1.2.1.43.10.2.1.4.1.1", .Description = {"Pages"}},
+            {.Name = ".1.3.6.1.2.1.1.6.0", .Description = {"Location"}},
+            {nullptr}};
+
+struct data {
+  const char *Model;
+  const char *SerialNumber;
+  long Pages;
+  const char *Location;
+  std::string IP;
+  unsigned int IPUInt;
+  bsoncxx::decimal128 IPDecimal128;
+} dataArray[1];
+
+mongocxx::instance instance{}; // This should be done only once.
+mongocxx::client conn{mongocxx::uri{"mongodb://192.168.88.254/testdb"}};
+
+void cleanDataArray(void) {
+  for (size_t i = 0; i < 1; ++i) {
+    dataArray[i].Model = 0;
+    dataArray[i].SerialNumber = 0;
+    dataArray[i].Pages = 0;
+    dataArray[i].Location = 0;
+    dataArray[i].IP = "";
+    dataArray[i].IPUInt = 0;
+    dataArray[i].IPDecimal128 = bsoncxx::decimal128();
+  }
+}
+int ipStringToNumber(const char *pDottedQuad, unsigned int *pIpAddr) {
+  unsigned int byte3;
+  unsigned int byte2;
+  unsigned int byte1;
+  unsigned int byte0;
+  char dummyString[2];
+
+  /* The dummy string with specifier %1s searches for a non-whitespace char
+   * after the last number. If it is found, the result of sscanf will be 5
+   * instead of 4, indicating an erroneous format of the ip-address.
+   */
+  if (sscanf(pDottedQuad, "%u.%u.%u.%u%1s", &byte3, &byte2, &byte1, &byte0,
+             dummyString) == 4) {
+    if ((byte3 < 256) && (byte2 < 256) && (byte1 < 256) && (byte0 < 256)) {
+      *pIpAddr = (byte3 << 24) + (byte2 << 16) + (byte1 << 8) + byte0;
+
+      return 1;
+    }
+  }
+
+  return 0;
+}
 
 void initIP(bool devMode) {
   if (devMode) {
@@ -105,6 +154,7 @@ void initIP(bool devMode) {
     }
   }
 }
+
 void strtrim(char *str) {
   int start = 0; // number of leading spaces
   char *buffer = str;
@@ -122,6 +172,7 @@ void strtrim(char *str) {
   while ((*buffer++ = *str++))
     ; // remove leading spaces: K&R
 }
+
 int print_result_new(int status, struct snmp_session *sp, struct snmp_pdu *pdu,
                      std::string Name) {
   char buf[1024];
@@ -162,6 +213,15 @@ int print_result_new(int status, struct snmp_session *sp, struct snmp_pdu *pdu,
           return -1;
         } else {
           BOOST_LOG_TRIVIAL(info) << boost::format(" %s: %s") % Name % stp;
+          if (Name == "Model") {
+            dataArray[0].Model = strdup(stp);
+          }
+          if (Name == "Location") {
+            dataArray[0].Location = strdup(stp);
+          }
+          if (Name == "SN") {
+            dataArray[0].SerialNumber = strdup(stp);
+          }
         }
         free(stp);
         break;
@@ -171,6 +231,9 @@ int print_result_new(int status, struct snmp_session *sp, struct snmp_pdu *pdu,
         long intval;
         intval = *((long *)vp->val.integer);
         BOOST_LOG_TRIVIAL(info) << boost::format(" %s: %d") % Name % intval;
+        if (Name == "Pages") {
+          dataArray[0].Pages = intval;
+        }
         break;
       }
       default:
@@ -204,9 +267,10 @@ int print_result_new(int status, struct snmp_session *sp, struct snmp_pdu *pdu,
   }
 }
 
-void startSNMP(std::string ip) {
+void getSNMPbyIP(std::string ip) {
   struct snmp_session ss, *sp;
   struct oidStruct *op;
+  bool doSave = false;
   /*
 
     // std::string to char * with boost::scoped_array
@@ -218,7 +282,7 @@ void startSNMP(std::string ip) {
     std::vector<char> writable1(ip.begin(), ip.end());
     writable1.push_back('\0');
   */
-
+  cleanDataArray();
   snmp_sess_init(&ss);
   ss.version = SNMP_VERSION_2c;
   ss.peername = strdup(ip.c_str());
@@ -257,8 +321,49 @@ void startSNMP(std::string ip) {
       }
 
       snmp_free_pdu(resp);
-      if (print_result_status == -1)
+
+      if (print_result_status == -1) {
+        doSave = false;
         break;
+      } else {
+        doSave = true;
+      }
+    }
+    if (doSave) {
+      dataArray[0].IP = ip;
+
+      unsigned int ipAddr;
+      bsoncxx::decimal128 d128;
+
+      if (ipStringToNumber(ip.c_str(), &ipAddr) == 1) {
+        dataArray[0].IPUInt = ipAddr;
+        try {
+          d128 = bsoncxx::decimal128(std::to_string(ipAddr));
+        } catch (const bsoncxx::exception &e) {
+          BOOST_LOG_TRIVIAL(error)
+              << boost::format(" Cast error to bsoncxx::decimal128 %s") % e.what();
+        }
+
+        dataArray[0].IPDecimal128 = d128;
+      } else {
+        dataArray[0].IPDecimal128 = bsoncxx::decimal128();
+        dataArray[0].IPUInt = 0;
+      }
+      // todo ip to integer
+
+      auto collection = conn["testdb"]["testcollection"];
+      auto builder = bsoncxx::builder::stream::document{};
+      bsoncxx::document::value doc_value =
+          builder << "model" << dataArray[0].Model << "serial"
+                  << dataArray[0].SerialNumber << "date"
+                  << bsoncxx::types::b_date(std::chrono::system_clock::now())
+                  << "pages" << dataArray[0].Pages << "location"
+                  << dataArray[0].Location << "ip" << dataArray[0].IP
+                  << "ip_int" << dataArray[0].IPDecimal128
+
+                  << bsoncxx::builder::stream::finalize;
+
+      collection.insert_one(doc_value.view());
     }
   }
   snmp_close(sp);
@@ -281,26 +386,20 @@ void parseOid(void) {
 }
 
 void initMongo() {
-  mongocxx::instance inst{};
-  mongocxx::client conn{mongocxx::uri{}};
+  mongocxx::client conn{mongocxx::uri{"mongodb://192.168.88.254/testdb"}};
 
   bsoncxx::builder::stream::document document{};
 
-  auto collection = conn["testdb"]["testcollection"];
-  document << "hello"
-           << "world";
-
-  collection.insert_one(document.view());
-  auto cursor = collection.find({});
+  /*auto cursor = collection.find({});
 
   for (auto &&doc : cursor) {
     std::cout << bsoncxx::to_json(doc) << std::endl;
-  }
+  }*/
 }
 
 void scanSNMP() {
   for (const std::string ip : IPs) {
-    startSNMP(ip);
+    getSNMPbyIP(ip);
   }
 }
 
@@ -333,6 +432,7 @@ static void initLog(void) {
 }
 
 int main(int argc, char **argv) {
+  initMongo();
   initLog();
   parseOid();
   //  initMongo();

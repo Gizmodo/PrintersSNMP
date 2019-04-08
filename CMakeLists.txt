@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.10)
 project(snmp)
 set_property(GLOBAL PROPERTY RULE_LAUNCH_COMPILE "${CMAKE_COMMAND} -E time")
 SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pthread")
-set(CMAKE_VERBOSE_MAKEFILE OFF)
+set(CMAKE_VERBOSE_MAKEFILE ON)
 set(CMAKE_CXX_STANDARD 11)
 set(BOOST_ROOT /home/user/boost_1_69_0)
 set(BOOST_INCLUDEDIR /home/user/boost_1_69_0)
@@ -27,9 +27,11 @@ if (Boost_FOUND)
     #    include_directories(${Boost_INCLUDE_DIRS})
 
 endif ()
-add_executable(snmp snmp_test_success.cpp)
-set_target_properties(snmp PROPERTIES OUTPUT_NAME "SNMP_")
-target_link_libraries(snmp
+
+project(mongo_test)
+add_executable(mongo_test mongo_test.cpp)
+set_target_properties(mongo_test PROPERTIES OUTPUT_NAME "mongo_test")
+target_link_libraries(mongo_test
         /usr/local/lib/libbsoncxx.so.3.4.0
         #/usr/local/lib/libbsoncxx.so._noabi
         /usr/local/lib/libmongocxx.so._noabi
@@ -37,56 +39,8 @@ target_link_libraries(snmp
         /home/user/boost_1_69_0/stage/lib/libboost_thread.a
         /home/user/boost_1_69_0/stage/lib/libboost_regex.a
         /usr/local/lib/libnetsnmp.so
-        #        /usr/lib/x86_64-linux-gnu/libboost_system.so
-        #        /usr/lib/x86_64-linux-gnu/libboost_filesystem.so
-        #        ${Boost_LIBRARIES}
         )
 
-project(mongo)
-add_executable(mongo mongo_test_success.cpp)
-set_target_properties(mongo PROPERTIES OUTPUT_NAME "MONGO_")
-target_link_libraries(mongo
-        /usr/local/lib/libbsoncxx.so.3.4.0
-        #/usr/local/lib/libbsoncxx.so._noabi
-        /usr/local/lib/libmongocxx.so._noabi
-        /home/user/boost_1_69_0/stage/lib/libboost_system.a
-        /home/user/boost_1_69_0/stage/lib/libboost_thread.a
-        /home/user/boost_1_69_0/stage/lib/libboost_regex.a
-        /usr/local/lib/libnetsnmp.so
-        #        /usr/lib/x86_64-linux-gnu/libboost_system.so
-        #        /usr/lib/x86_64-linux-gnu/libboost_filesystem.so
-        #        ${Boost_LIBRARIES}
-        )
-project(ping)
-add_executable(ping ping_test_success.cpp)
-set_target_properties(ping PROPERTIES OUTPUT_NAME "PING_")
-target_link_libraries(ping
-        /usr/local/lib/libbsoncxx.so.3.4.0
-        #/usr/local/lib/libbsoncxx.so._noabi
-        /usr/local/lib/libmongocxx.so._noabi
-        /home/user/boost_1_69_0/stage/lib/libboost_system.a
-        /home/user/boost_1_69_0/stage/lib/libboost_thread.a
-        /home/user/boost_1_69_0/stage/lib/libboost_regex.a
-        /usr/local/lib/libnetsnmp.so
-        #        /usr/lib/x86_64-linux-gnu/libboost_system.so
-        #        /usr/lib/x86_64-linux-gnu/libboost_filesystem.so
-        #        ${Boost_LIBRARIES}
-        )
-project(monitor)
-add_executable(monitor monitor.cpp)
-set_target_properties(monitor PROPERTIES OUTPUT_NAME "MONITOR")
-target_link_libraries(monitor
-        /usr/local/lib/libbsoncxx.so.3.4.0
-        #/usr/local/lib/libbsoncxx.so._noabi
-        /usr/local/lib/libmongocxx.so._noabi
-        /home/user/boost_1_69_0/stage/lib/libboost_system.a
-        /home/user/boost_1_69_0/stage/lib/libboost_thread.a
-        /home/user/boost_1_69_0/stage/lib/libboost_log.a
-        /usr/local/lib/libnetsnmp.so
-        #        /usr/lib/x86_64-linux-gnu/libboost_system.so
-        #        /usr/lib/x86_64-linux-gnu/libboost_filesystem.so
-        #        ${Boost_LIBRARIES}
-        )
 project(snmp_mongo)
 add_executable(snmp_mongo snmp_mongo.cpp)
 set_target_properties(snmp_mongo PROPERTIES OUTPUT_NAME "snmp_mongo")
