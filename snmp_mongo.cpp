@@ -53,7 +53,7 @@ struct oidStruct {
 struct data {
   const char *Model;
   const char *SerialNumber;
-  long Pages;
+  int Pages;
   const char *Location;
   std::string IP;
   unsigned int IPUInt;
@@ -225,8 +225,8 @@ int print_result_new(int status, struct snmp_session *sp, struct snmp_pdu *pdu,
       }
       case ASN_INTEGER:
       case ASN_COUNTER: {
-        long intval;
-        intval = *((long *)vp->val.integer);
+        int intval;
+        intval = *((int *)vp->val.integer);
         BOOST_LOG_TRIVIAL(info) << boost::format(" %s: %d") % Name % intval;
         if (Name == "Pages") {
           dataArray[0].Pages = intval;
@@ -343,7 +343,7 @@ void getSNMPbyIP(std::string ip) {
           builder << "model" << dataArray[0].Model << "serial"
                   << dataArray[0].SerialNumber << "date"
                   << bsoncxx::types::b_date(std::chrono::system_clock::now())
-                  << "pages" << dataArray[0].Pages << "location"
+                  << "pages" << bsoncxx::types::b_int32{dataArray[0].Pages}<< "location"
                   << dataArray[0].Location << "ip" << dataArray[0].IP
                   << "ip_int" << bsoncxx::types::b_int64{dataArray[0].IPUInt}
                   << bsoncxx::builder::stream::finalize;
