@@ -58,9 +58,12 @@ struct data {
   std::string IP;
   unsigned int IPUInt;
 } dataArray[1];
-
+std::string host = "192.168.88.254";
+std::string db = "testdb";
+std::string collectionName = "testcollection";
 mongocxx::instance instance{}; // This should be done only once.
-mongocxx::client conn{mongocxx::uri{"mongodb://192.168.88.254/testdb"}};
+
+mongocxx::client conn{mongocxx::uri{(boost::format("mongodb://%s/%s") % host % db).str()}};
 
 void cleanDataArray(void) {
   for (size_t i = 0; i < 1; ++i) {
@@ -87,7 +90,6 @@ int ipStringToNumber(const char *pDottedQuad, unsigned int *pIpAddr) {
              dummyString) == 4) {
     if ((byte3 < 256) && (byte2 < 256) && (byte1 < 256) && (byte0 < 256)) {
       *pIpAddr = (byte3 << 24) + (byte2 << 16) + (byte1 << 8) + byte0;
-
       return 1;
     }
   }
@@ -337,7 +339,15 @@ void getSNMPbyIP(std::string ip) {
         dataArray[0].IPUInt = 0;
       }
 
-      auto collection = conn["testdb"]["testcollection"];
+      auto collection = conn[db][collectionName];
+
+      bsoncxx::stdx::optional<bsoncxx::document::value> maybe_result =
+          collection.find_one(document{} << "i" << 71 << finalize);
+      if(maybe_result) {
+        std::cout << bsoncxx::to_json(*maybe_result) << "\n";
+      }
+
+
       auto builder = bsoncxx::builder::stream::document{};
       bsoncxx::document::value doc_value =
           builder << "model" << dataArray[0].Model << "serial"
