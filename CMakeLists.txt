@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.10)
 project(snmp)
 set_property(GLOBAL PROPERTY RULE_LAUNCH_COMPILE "${CMAKE_COMMAND} -E time")
 SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pthread")
-set(CMAKE_VERBOSE_MAKEFILE ON)
+set(CMAKE_VERBOSE_MAKEFILE OFF)
 set(CMAKE_CXX_STANDARD 11)
 set(BOOST_ROOT /home/user/boost_1_69_0)
 set(BOOST_INCLUDEDIR /home/user/boost_1_69_0)
@@ -13,10 +13,10 @@ include_directories(
         /home/user/boost_1_69_0
         /usr/local/include/net-snmp
 )
-set(Boost_USE_STATIC ON)
-set(Boost_USE_STATIC_LIBS ON)
-set(Boost_USE_MULTITHREADED ON)
-set(Boost_USE_STATIC_RUNTIME ON)
+set(Boost_USE_STATIC OFF)
+set(Boost_USE_STATIC_LIBS OFF)
+set(Boost_USE_MULTITHREADED OFF)
+set(Boost_USE_STATIC_RUNTIME OFF)
 find_package(Boost COMPONENTS thread log log_setup system  date_time  chrono REQUIRED)
 if (Boost_FOUND)
 

@@ -2,7 +2,6 @@
 #include <net-snmp/net-snmp-includes.h>
 
 #include <bsoncxx/builder/stream/document.hpp>
-#include <bsoncxx/decimal128.hpp>
 #include <bsoncxx/exception/exception.hpp>
 #include <bsoncxx/json.hpp>
 #include <bsoncxx/types.hpp>
@@ -58,7 +57,6 @@ struct data {
   const char *Location;
   std::string IP;
   unsigned int IPUInt;
-  bsoncxx::decimal128 IPDecimal128;
 } dataArray[1];
 
 mongocxx::instance instance{}; // This should be done only once.
@@ -72,7 +70,6 @@ void cleanDataArray(void) {
     dataArray[i].Location = 0;
     dataArray[i].IP = "";
     dataArray[i].IPUInt = 0;
-    dataArray[i].IPDecimal128 = bsoncxx::decimal128();
   }
 }
 int ipStringToNumber(const char *pDottedQuad, unsigned int *pIpAddr) {
@@ -113,7 +110,6 @@ void initIP(bool devMode) {
     IPs.push_back("121.137.133.227");
     IPs.push_back("121.143.103.125");
     IPs.push_back("134.255.76.46");
-    IPs.push_back("134.255.76.46");
     IPs.push_back("137.26.143.186");
     IPs.push_back("153.19.67.9");
     IPs.push_back("163.19.200.141");
@@ -123,7 +119,6 @@ void initIP(bool devMode) {
     IPs.push_back("18.127.2.4");
     IPs.push_back("182.31.30.55");
     IPs.push_back("183.98.155.134");
-    IPs.push_back("193.198.100.138");
     IPs.push_back("193.198.100.138");
     IPs.push_back("193.198.93.14");
     IPs.push_back("195.96.231.88");
@@ -186,10 +181,12 @@ int print_result_new(int status, struct snmp_session *sp, struct snmp_pdu *pdu,
       //   fprintf(stdout, "%s - %s: %s\n", Name.c_str(), sp->peername, buf);
 
       switch (vp->type) {
+      case 128:
       case 129: {
         // No Such ...
         BOOST_LOG_TRIVIAL(warning)
             << boost::format(" No Such ... %s: %d") % Name % vp->type;
+        return -1;
         break;
       }
       case ASN_OCTET_STR: {
@@ -330,26 +327,15 @@ void getSNMPbyIP(std::string ip) {
       }
     }
     if (doSave) {
-      dataArray[0].IP = ip;
-
       unsigned int ipAddr;
-      bsoncxx::decimal128 d128;
+
+      dataArray[0].IP = ip;
 
       if (ipStringToNumber(ip.c_str(), &ipAddr) == 1) {
         dataArray[0].IPUInt = ipAddr;
-        try {
-          d128 = bsoncxx::decimal128(std::to_string(ipAddr));
-        } catch (const bsoncxx::exception &e) {
-          BOOST_LOG_TRIVIAL(error)
-              << boost::format(" Cast error to bsoncxx::decimal128 %s") % e.what();
-        }
-
-        dataArray[0].IPDecimal128 = d128;
       } else {
-        dataArray[0].IPDecimal128 = bsoncxx::decimal128();
         dataArray[0].IPUInt = 0;
       }
-      // todo ip to integer
 
       auto collection = conn["testdb"]["testcollection"];
       auto builder = bsoncxx::builder::stream::document{};
@@ -359,8 +345,7 @@ void getSNMPbyIP(std::string ip) {
                   << bsoncxx::types::b_date(std::chrono::system_clock::now())
                   << "pages" << dataArray[0].Pages << "location"
                   << dataArray[0].Location << "ip" << dataArray[0].IP
-                  << "ip_int" << dataArray[0].IPDecimal128
-
+                  << "ip_int" << bsoncxx::types::b_int64{dataArray[0].IPUInt}
                   << bsoncxx::builder::stream::finalize;
 
       collection.insert_one(doc_value.view());
@@ -369,7 +354,7 @@ void getSNMPbyIP(std::string ip) {
   snmp_close(sp);
 }
 
-void parseOid(void) {
+void parseOid() {
   struct oidStruct *op = oids;
   init_snmp("asynchapp");
 
@@ -385,25 +370,13 @@ void parseOid(void) {
   }
 }
 
-void initMongo() {
-  mongocxx::client conn{mongocxx::uri{"mongodb://192.168.88.254/testdb"}};
-
-  bsoncxx::builder::stream::document document{};
-
-  /*auto cursor = collection.find({});
-
-  for (auto &&doc : cursor) {
-    std::cout << bsoncxx::to_json(doc) << std::endl;
-  }*/
-}
-
 void scanSNMP() {
   for (const std::string ip : IPs) {
     getSNMPbyIP(ip);
   }
 }
 
-static void initLog(void) {
+static void initLog() {
   boost::log::add_common_attributes();
   boost::log::core::get()->add_global_attribute(
       "Scope", boost::log::attributes::named_scope());
@@ -432,10 +405,8 @@ static void initLog(void) {
 }
 
 int main(int argc, char **argv) {
-  initMongo();
   initLog();
   parseOid();
-  //  initMongo();
   initIP(true);
   scanSNMP();
   return 0;
