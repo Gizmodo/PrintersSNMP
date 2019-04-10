@@ -1,13 +1,23 @@
 #include <net-snmp/net-snmp-config.h>
 #include <net-snmp/net-snmp-includes.h>
 
+#include <bsoncxx/array/view.hpp>
+#include <bsoncxx/builder/basic/array.hpp>
+#include <bsoncxx/builder/basic/document.hpp>
+#include <bsoncxx/builder/basic/kvp.hpp>
 #include <bsoncxx/builder/stream/document.hpp>
+#include <bsoncxx/document/value.hpp>
+#include <bsoncxx/document/view.hpp>
 #include <bsoncxx/exception/exception.hpp>
 #include <bsoncxx/json.hpp>
+#include <bsoncxx/stdx/string_view.hpp>
+#include <bsoncxx/string/to_string.hpp>
 #include <bsoncxx/types.hpp>
-
+#include <bsoncxx/types/value.hpp>
 #include <mongocxx/client.hpp>
 #include <mongocxx/instance.hpp>
+#include <mongocxx/options/find.hpp>
+#include <mongocxx/uri.hpp>
 
 #include <boost/algorithm/string.hpp>
 #include <boost/container/vector.hpp>
@@ -63,8 +73,78 @@ std::string db = "testdb";
 std::string collectionName = "testcollection";
 mongocxx::instance instance{}; // This should be done only once.
 
-mongocxx::client conn{mongocxx::uri{(boost::format("mongodb://%s/%s") % host % db).str()}};
+mongocxx::client client{
+    mongocxx::uri{(boost::format("mongodb://%s/%s") % host % db).str()}};
 
+mongocxx::collection collection = client[db][collectionName];
+
+void save(std::string ip) {
+  // auto collection = client[db][collectionName];
+  //---------------------------
+  auto db1 = client[db];
+  int count1 = db1[collectionName].count_documents(
+      bsoncxx::builder::basic::make_document(
+          bsoncxx::builder::basic::kvp("serial", dataArray[0].SerialNumber)));
+
+    /////**************************
+  auto cursor = collection.find(bsoncxx::builder::basic::make_document(
+      bsoncxx::builder::basic::kvp("serial", dataArray[0].SerialNumber)));
+
+  for (auto &&doc : cursor) {
+    std::cout << bsoncxx::to_json(doc) << std::endl;
+    for (bsoncxx::document::element ele : doc) {
+      bsoncxx::stdx::string_view field_key{ele.key()};
+      std::cout << "Got key. key = " << field_key << std::endl;
+
+      switch (ele.type()) {
+      case bsoncxx::type::k_utf8: {
+        std::cout << "Got String!" << std::endl;
+        auto val2 = ele.get_utf8().value;
+        std::cout << val2 << std::endl;
+        break;
+      }
+      case bsoncxx::type::k_oid: {
+
+        // std::cout << val << std::endl;
+        std::cout << "Got ObjectId!" << std::endl;
+        auto val3 = ele.get_oid().value;
+        // auto f1 = bsoncxx::string::to_string(ele.get_oid().value)
+        break;
+      }
+      case bsoncxx::type::k_array: {
+        std::cout << "Got Array!" << std::endl;
+        // if we have a subarray, we can access it by getting a view of it.
+        bsoncxx::array::view subarr{ele.get_array().value};
+        for (bsoncxx::array::element ele : subarr) {
+          std::cout << "array element: "
+                    << bsoncxx::string::to_string(ele.get_utf8().value)
+                    << std::endl;
+        }
+        break;
+      }
+      default:
+        std::cout << "We messed up!" << std::endl;
+      }
+      bsoncxx::types::value ele_val{ele.get_value()};
+    }
+    auto t = bsoncxx::to_json(doc);
+  }
+
+  //---------------------------
+
+  auto builder = bsoncxx::builder::stream::document{};
+  bsoncxx::document::value doc_value =
+      builder << "model" << dataArray[0].Model << "serial"
+              << dataArray[0].SerialNumber << "date"
+              << bsoncxx::types::b_date(std::chrono::system_clock::now())
+              << "pages" << bsoncxx::types::b_int32{dataArray[0].Pages}
+              << "location" << dataArray[0].Location << "ip" << dataArray[0].IP
+              << "ip_int" << bsoncxx::types::b_int64{dataArray[0].IPUInt}
+              << bsoncxx::builder::stream::finalize;
+
+  collection.insert_one(doc_value.view());
+  //---------------------------
+}
 void cleanDataArray(void) {
   for (size_t i = 0; i < 1; ++i) {
     dataArray[i].Model = 0;
@@ -338,27 +418,7 @@ void getSNMPbyIP(std::string ip) {
       } else {
         dataArray[0].IPUInt = 0;
       }
-
-      auto collection = conn[db][collectionName];
-
-      bsoncxx::stdx::optional<bsoncxx::document::value> maybe_result =
-          collection.find_one(document{} << "i" << 71 << finalize);
-      if(maybe_result) {
-        std::cout << bsoncxx::to_json(*maybe_result) << "\n";
-      }
-
-
-      auto builder = bsoncxx::builder::stream::document{};
-      bsoncxx::document::value doc_value =
-          builder << "model" << dataArray[0].Model << "serial"
-                  << dataArray[0].SerialNumber << "date"
-                  << bsoncxx::types::b_date(std::chrono::system_clock::now())
-                  << "pages" << bsoncxx::types::b_int32{dataArray[0].Pages}<< "location"
-                  << dataArray[0].Location << "ip" << dataArray[0].IP
-                  << "ip_int" << bsoncxx::types::b_int64{dataArray[0].IPUInt}
-                  << bsoncxx::builder::stream::finalize;
-
-      collection.insert_one(doc_value.view());
+      save(ip);
     }
   }
   snmp_close(sp);
