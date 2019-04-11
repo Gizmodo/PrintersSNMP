@@ -19,6 +19,8 @@
 #include <mongocxx/uri.hpp>
 
 #include <boost/algorithm/string.hpp>
+#include <boost/asio.hpp>
+#include <boost/bind.hpp>
 #include <boost/container/vector.hpp>
 #include <boost/date_time/posix_time/posix_time_types.hpp>
 #include <boost/format.hpp>
@@ -451,11 +453,24 @@ static void initLog() {
   auto consoleSink = boost::log::add_console_log(std::clog);
   consoleSink->set_formatter(logFmt);
 }
-
+void print(const boost::system::error_code & /*e*/,
+           boost::asio::deadline_timer *t, int *count) {
+  scanSNMP();
+  t->expires_at(t->expires_at() + boost::posix_time::seconds(100));
+  t->async_wait(boost::bind(print, boost::asio::placeholders::error, t, count));
+}
 int main(int argc, char **argv) {
   initLog();
   parseOid();
   initIP(true);
-  scanSNMP();
+
+  boost::asio::io_service io;
+  int count = 0;
+  boost::asio::deadline_timer t(io, boost::posix_time::seconds(1));
+  t.async_wait(
+      boost::bind(print, boost::asio::placeholders::error, &t, &count));
+
+  io.run();
+
   return 0;
 }
