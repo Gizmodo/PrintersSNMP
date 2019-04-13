@@ -50,9 +50,10 @@ using bsoncxx::builder::basic::make_array;
 using bsoncxx::builder::basic::make_document;
 using std::cout;
 using std::endl;
-
+using namespace std::chrono;
 boost::container::vector<std::string> IPs;
-
+typedef high_resolution_clock Clock;
+typedef Clock::time_point ClockTime;
 struct oidStruct {
   const char *Name;
   oid Oid[MAX_OID_LEN];
@@ -72,6 +73,10 @@ struct data {
   std::string IP;
   unsigned int IPUInt;
 } dataArray[1];
+
+int statOnlineDevices = 0;
+int statOnlinePrinters = 0;
+
 const std::string host = "192.168.88.254";
 const std::string db = "testdb";
 const std::string collectionName = "printers";
@@ -156,10 +161,6 @@ int ipStringToNumber(const char *pDottedQuad, unsigned int *pIpAddr) {
   unsigned int byte0;
   char dummyString[2];
 
-  /* The dummy string with specifier %1s searches for a non-whitespace char
-   * after the last number. If it is found, the result of sscanf will be 5
-   * instead of 4, indicating an erroneous format of the ip-address.
-   */
   if (sscanf(pDottedQuad, "%u.%u.%u.%u%1s", &byte3, &byte2, &byte1, &byte0,
              dummyString) == 4) {
     if ((byte3 < 256) && (byte2 < 256) && (byte1 < 256) && (byte0 < 256)) {
@@ -167,7 +168,6 @@ int ipStringToNumber(const char *pDottedQuad, unsigned int *pIpAddr) {
       return 1;
     }
   }
-
   return 0;
 }
 
@@ -216,6 +216,51 @@ void initIP(bool devMode) {
     IPs.push_back("95.97.141.123");
     IPs.push_back("96.91.105.110");
     IPs.push_back("98.155.108.21");
+
+    IPs.push_back("192.168.88.1");
+    IPs.push_back("192.168.88.251");
+    IPs.push_back("169.237.117.47");
+    IPs.push_back("183.108.188.25");
+    IPs.push_back("58.137.51.68");
+    IPs.push_back("103.210.24.244");
+    IPs.push_back("107.211.249.156");
+    IPs.push_back("115.160.56.153");
+    IPs.push_back("118.128.78.196");
+    IPs.push_back("121.137.133.227");
+    IPs.push_back("121.143.103.125");
+    IPs.push_back("134.255.76.46");
+    IPs.push_back("137.26.143.186");
+    IPs.push_back("153.19.67.9");
+    IPs.push_back("163.19.200.141");
+    IPs.push_back("163.27.162.109");
+    IPs.push_back("163.27.162.61");
+    IPs.push_back("173.19.94.142");
+    IPs.push_back("18.127.2.4");
+    IPs.push_back("182.31.30.55");
+    IPs.push_back("183.98.155.134");
+    IPs.push_back("193.198.100.138");
+    IPs.push_back("193.198.93.14");
+    IPs.push_back("195.96.231.88");
+    IPs.push_back("197.50.226.137");
+    IPs.push_back("197.50.227.149");
+    IPs.push_back("200.6.169.149");
+    IPs.push_back("202.172.107.201");
+    IPs.push_back("203.253.251.146");
+    IPs.push_back("206.126.42.241");
+    IPs.push_back("210.179.32.162");
+    IPs.push_back("211.40.127.253");
+    IPs.push_back("24.213.57.102");
+    IPs.push_back("47.144.13.89");
+    IPs.push_back("5.148.131.50");
+    IPs.push_back("58.181.35.141");
+    IPs.push_back("64.185.36.123");
+    IPs.push_back("66.210.225.179");
+    IPs.push_back("80.11.188.182");
+    IPs.push_back("90.152.31.213");
+    IPs.push_back("95.97.141.123");
+    IPs.push_back("96.91.105.110");
+    IPs.push_back("98.155.108.21");
+
   } else {
     for (int i = 88; i < 89; ++i) {
       for (int j = 0; j < 255; ++j) {
@@ -358,7 +403,7 @@ void getSNMPbyIP(std::string ip) {
     BOOST_LOG_TRIVIAL(debug) << boost::format("%s offline") % ip;
   } else {
     BOOST_LOG_TRIVIAL(debug) << boost::format("%s online") % ip;
-
+    statOnlineDevices++;
     for (op = oids; op->Name; op++) {
       struct snmp_pdu *req, *resp;
       int status;
@@ -392,6 +437,7 @@ void getSNMPbyIP(std::string ip) {
       }
     }
     if (doSave) {
+      statOnlinePrinters++;
       unsigned int ipAddr;
       dataArray[0].IP = ip;
       if (ipStringToNumber(ip.c_str(), &ipAddr) == 1) {
@@ -420,10 +466,59 @@ void parseOid() {
   }
 }
 
+std::string printExecutionTime(ClockTime start_time, ClockTime end_time) {
+  //  auto execution_time_ns = duration_cast<nanoseconds>(end_time -
+  //  start_time).count(); auto execution_time_ms =
+  //  duration_cast<microseconds>(end_time - start_time).count();
+  auto execution_time_sec =
+      duration_cast<seconds>(end_time - start_time).count();
+  auto execution_time_min =
+      duration_cast<minutes>(end_time - start_time).count();
+  auto execution_time_hour =
+      duration_cast<hours>(end_time - start_time).count();
+  std::string res = "";
+
+  if (execution_time_hour > 0)
+    res = std::to_string(execution_time_hour) + " h, ";
+  if (execution_time_min > 0)
+    res = res + std::to_string(execution_time_min % 60 )+ " m, ";
+  if (execution_time_sec > 0)
+    res = res + std::to_string(execution_time_sec % 60) + " s";
+  /*
+   * if(execution_time_ms > 0)
+    cout << "" << execution_time_ms % long(1E+3) << " MicroSeconds, ";
+  if(execution_time_ns > 0)
+    cout << "" << execution_time_ns % long(1E+6) << " NanoSeconds, ";
+    */
+  return res;
+}
+
 void scanSNMP() {
+  std::chrono::time_point<std::chrono::system_clock> start, end;
+  statOnlineDevices = 0;
+  statOnlinePrinters = 0;
+  start = std::chrono::system_clock::now();
+  ClockTime start_time = Clock::now();
   for (const std::string ip : IPs) {
     getSNMPbyIP(ip);
   }
+  end = std::chrono::system_clock::now();
+  ClockTime end_time = Clock::now();
+  int elapsed_seconds =
+      std::chrono::duration_cast<std::chrono::seconds>(end - start).count();
+  int elapsed_minutes =
+      std::chrono::duration_cast<std::chrono::minutes>(end - start).count();
+  int elapsed_hours =
+      std::chrono::duration_cast<std::chrono::hours>(end - start).count();
+
+  BOOST_LOG_TRIVIAL(info) << boost::format(
+      "<--------------Scan finished-------------->");
+  BOOST_LOG_TRIVIAL(info) << boost::format("Online devices : %d") %
+                                 statOnlineDevices;
+  BOOST_LOG_TRIVIAL(info) << boost::format("Online printers: %d") %
+                                 statOnlinePrinters;
+  BOOST_LOG_TRIVIAL(info) << boost::format("Elapsed time: %s") %
+                                 printExecutionTime(start_time, end_time);
 }
 
 static void initLog() {
@@ -453,12 +548,17 @@ static void initLog() {
   auto consoleSink = boost::log::add_console_log(std::clog);
   consoleSink->set_formatter(logFmt);
 }
+
 void print(const boost::system::error_code & /*e*/,
            boost::asio::deadline_timer *t, int *count) {
   scanSNMP();
+  auto dt = t->expires_at() + boost::posix_time::seconds(100);
+  BOOST_LOG_TRIVIAL(info) << boost::format("Next scan will start at: %s") % dt;
+
   t->expires_at(t->expires_at() + boost::posix_time::seconds(100));
   t->async_wait(boost::bind(print, boost::asio::placeholders::error, t, count));
 }
+
 int main(int argc, char **argv) {
   initLog();
   parseOid();
@@ -471,6 +571,5 @@ int main(int argc, char **argv) {
       boost::bind(print, boost::asio::placeholders::error, &t, &count));
 
   io.run();
-
   return 0;
 }
