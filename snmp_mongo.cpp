@@ -88,7 +88,57 @@ const mongocxx::client client{
 
 mongocxx::collection collection = client[db][collectionName];
 mongocxx::collection collectionPages = client[db][collectionPagesName];
+std::string  formatModel(std::string str) {
+  boost::trim(str);
+  size_t found;
 
+  found = str.find("Xerox WorkCentre 5330");
+  if (found != std::string::npos) {
+    str = "Xerox WorkCentre 5330";
+  }
+
+  found = str.find("Xerox VersaLink C600");
+  if (found != std::string::npos) {
+    str = "Xerox VersaLink C600";
+  }
+  found = str.find("Xerox WorkCentre 5330");
+  if (found != std::string::npos) {
+    str = "Xerox WorkCentre 5330";
+  }
+  found = str.find("Xerox Phaser 5550DN");
+  if (found != std::string::npos) {
+    str = "Xerox Phaser 5550DN";
+  }
+  found = str.find("Xerox Phaser 3610");
+  if (found != std::string::npos) {
+    str = "Xerox Phaser 3610";
+  }
+  found = str.find("Xerox Phaser 6360DN");
+  if (found != std::string::npos) {
+    str = "Xerox Phaser 6360DN";
+  }
+  found = str.find("Xerox WorkCentre 6505DN");
+  if (found != std::string::npos) {
+    str = "Xerox WorkCentre 6505DN";
+  }
+  found = str.find("Xerox WorkCentre 5945");
+  if (found != std::string::npos) {
+    str = "Xerox WorkCentre 5945";
+  }
+
+  found = str.find("Lexmark");
+  if (found != std::string::npos) {
+    std::vector<std::string> details;
+    boost::split(details, str, boost::is_any_of(" "));
+    try {
+      str = details.at(0) + " " + details.at(1);
+    } catch (std::out_of_range o) {
+      std::cout << o.what() << std::endl;
+    }
+  }
+
+  return str;
+}
 void saveToMongo() {
   // Find record by serial
   int record =
@@ -287,7 +337,6 @@ void strtrim(char *str) {
   while ((*buffer++ = *str++))
     ; // remove leading spaces: K&R
 }
-
 int print_result_new(int status, struct snmp_session *sp, struct snmp_pdu *pdu,
                      std::string Name) {
   char buf[1024];
@@ -331,7 +380,7 @@ int print_result_new(int status, struct snmp_session *sp, struct snmp_pdu *pdu,
         } else {
           BOOST_LOG_TRIVIAL(info) << boost::format(" %s: %s") % Name % stp;
           if (Name == "Model") {
-            dataArray[0].Model = strdup(stp);
+            dataArray[0].Model = formatModel(strdup(stp));
           }
           if (Name == "Location") {
             dataArray[0].Location = strdup(stp);
@@ -481,7 +530,7 @@ std::string printExecutionTime(ClockTime start_time, ClockTime end_time) {
   if (execution_time_hour > 0)
     res = std::to_string(execution_time_hour) + " h, ";
   if (execution_time_min > 0)
-    res = res + std::to_string(execution_time_min % 60 )+ " m, ";
+    res = res + std::to_string(execution_time_min % 60) + " m, ";
   if (execution_time_sec > 0)
     res = res + std::to_string(execution_time_sec % 60) + " s";
   /*

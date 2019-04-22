@@ -4,13 +4,13 @@ set_property(GLOBAL PROPERTY RULE_LAUNCH_COMPILE "${CMAKE_COMMAND} -E time")
 SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pthread")
 set(CMAKE_VERBOSE_MAKEFILE OFF)
 set(CMAKE_CXX_STANDARD 11)
-set(BOOST_ROOT /home/user/boost_1_69_0)
-set(BOOST_INCLUDEDIR /home/user/boost_1_69_0)
-set(BOOST_LIBRARYDIR /home/user/boost_1_69_0/stage/lib)
+set(BOOST_ROOT /home/user/boost_1_70_0)
+set(BOOST_INCLUDEDIR /home/user/boost_1_7_0)
+set(BOOST_LIBRARYDIR /home/user/boost_1_70_0/stage/lib)
 include_directories(
         /usr/local/include/mongocxx/v_noabi
         /usr/local/include/bsoncxx/v_noabi
-        /home/user/boost_1_69_0
+        /home/user/boost_1_70_0
         /usr/local/include/net-snmp
 )
 set(Boost_USE_STATIC OFF)
@@ -35,9 +35,9 @@ target_link_libraries(mongo_test
         /usr/local/lib/libbsoncxx.so.3.4.0
         #/usr/local/lib/libbsoncxx.so._noabi
         /usr/local/lib/libmongocxx.so._noabi
-        /home/user/boost_1_69_0/stage/lib/libboost_system.a
-        /home/user/boost_1_69_0/stage/lib/libboost_thread.a
-        /home/user/boost_1_69_0/stage/lib/libboost_regex.a
+        /home/user/boost_1_70_0/stage/lib/libboost_system.a
+        /home/user/boost_1_70_0/stage/lib/libboost_thread.a
+        /home/user/boost_1_70_0/stage/lib/libboost_regex.a
         /usr/local/lib/libnetsnmp.so
         )
 
@@ -48,8 +48,14 @@ target_link_libraries(snmp_mongo
         /usr/local/lib/libbsoncxx.so.3.4.0
         #/usr/local/lib/libbsoncxx.so._noabi
         /usr/local/lib/libmongocxx.so._noabi
-        /home/user/boost_1_69_0/stage/lib/libboost_system.a
-        /home/user/boost_1_69_0/stage/lib/libboost_thread.a
-        /home/user/boost_1_69_0/stage/lib/libboost_log.a
+        /home/user/boost_1_70_0/stage/lib/libboost_system.a
+        /home/user/boost_1_70_0/stage/lib/libboost_thread.a
+        /home/user/boost_1_70_0/stage/lib/libboost_log.a
         /usr/local/lib/libnetsnmp.so
+        )
+project(format)
+add_executable(format format.cpp)
+set_target_properties(format PROPERTIES OUTPUT_NAME "format")
+target_link_libraries(format
+        /home/user/boost_1_70_0/stage/lib/libboost_system.a
         )
