@@ -77,7 +77,7 @@ struct data {
 int statOnlineDevices = 0;
 int statOnlinePrinters = 0;
 
-const std::string host = "127.0.0.1";
+const std::string host = "192.168.88.254";
 const std::string db = "testdb";
 const std::string collectionName = "printers";
 const std::string collectionPagesName = "pages";
@@ -225,6 +225,7 @@ int ipStringToNumber(const char *pDottedQuad, unsigned int *pIpAddr) {
 
 void initIP(bool devMode) {
   if (devMode) {
+    IPs.push_back("153.19.67.9");
     IPs.push_back("192.168.88.1");
     IPs.push_back("192.168.88.251");
     IPs.push_back("169.237.117.47");
@@ -238,7 +239,7 @@ void initIP(bool devMode) {
     IPs.push_back("121.143.103.125");
     IPs.push_back("134.255.76.46");
     IPs.push_back("137.26.143.186");
-    IPs.push_back("153.19.67.9");
+
     IPs.push_back("163.19.200.141");
     IPs.push_back("163.27.162.109");
     IPs.push_back("163.27.162.61");
@@ -344,7 +345,7 @@ int print_result_new(int status, struct snmp_session *sp, struct snmp_pdu *pdu,
                      std::string Name) {
   char buf[1024];
   struct variable_list *vp;
-
+  std::string rez;
   switch (status) {
   case STAT_SUCCESS:
     vp = pdu->variables;
@@ -384,8 +385,8 @@ int print_result_new(int status, struct snmp_session *sp, struct snmp_pdu *pdu,
           BOOST_LOG_TRIVIAL(info) << boost::format(" %s: %s") % Name % stp;
           if (Name == "Model") {
             // const char *s = "Hello, World!";
-            std::string rez = formatModel(strdup(stp));
-            dataArray[0].Model = rez.c_str();
+            rez = formatModel(strdup(stp));
+            dataArray[0].Model = strdup(rez.c_str());
           }
           if (Name == "Location") {
             dataArray[0].Location = strdup(stp);
@@ -618,7 +619,7 @@ void print(const boost::system::error_code & /*e*/,
 int main(int argc, char **argv) {
   initLog();
   parseOid();
-  initIP(!true);
+  initIP(true);
 
   boost::asio::io_service io;
   int count = 0;
