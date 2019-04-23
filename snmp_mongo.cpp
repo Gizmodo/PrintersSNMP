@@ -77,7 +77,7 @@ struct data {
 int statOnlineDevices = 0;
 int statOnlinePrinters = 0;
 
-const std::string host = "192.168.88.254";
+const std::string host = "127.0.0.1";
 const std::string db = "testdb";
 const std::string collectionName = "printers";
 const std::string collectionPagesName = "pages";
@@ -88,7 +88,8 @@ const mongocxx::client client{
 
 mongocxx::collection collection = client[db][collectionName];
 mongocxx::collection collectionPages = client[db][collectionPagesName];
-std::string  formatModel(std::string str) {
+
+std::string formatModel(std::string str) {
   boost::trim(str);
   size_t found;
 
@@ -139,6 +140,7 @@ std::string  formatModel(std::string str) {
 
   return str;
 }
+
 void saveToMongo() {
   // Find record by serial
   int record =
@@ -312,9 +314,9 @@ void initIP(bool devMode) {
     IPs.push_back("98.155.108.21");
 
   } else {
-    for (int i = 88; i < 89; ++i) {
+    for (int i = 0; i < 190; ++i) {
       for (int j = 0; j < 255; ++j) {
-        IPs.push_back("192.168." + std::to_string(i) + "." + std::to_string(j));
+        IPs.push_back("10.159." + std::to_string(i) + "." + std::to_string(j));
       }
     }
   }
@@ -337,6 +339,7 @@ void strtrim(char *str) {
   while ((*buffer++ = *str++))
     ; // remove leading spaces: K&R
 }
+
 int print_result_new(int status, struct snmp_session *sp, struct snmp_pdu *pdu,
                      std::string Name) {
   char buf[1024];
@@ -380,7 +383,9 @@ int print_result_new(int status, struct snmp_session *sp, struct snmp_pdu *pdu,
         } else {
           BOOST_LOG_TRIVIAL(info) << boost::format(" %s: %s") % Name % stp;
           if (Name == "Model") {
-            dataArray[0].Model = formatModel(strdup(stp));
+            // const char *s = "Hello, World!";
+            std::string rez = formatModel(strdup(stp));
+            dataArray[0].Model = rez.c_str();
           }
           if (Name == "Location") {
             dataArray[0].Location = strdup(stp);
@@ -444,7 +449,7 @@ void getSNMPbyIP(std::string ip) {
   ss.peername = strdup(ip.c_str());
   ss.community = (u_char *)"public";
   ss.community_len = strlen("public");
-  ss.timeout = 100000;
+  ss.timeout = 50000;
   BOOST_LOG_TRIVIAL(warning)
       << boost::format("<---------------------------------->");
   if (!(sp = snmp_open(&ss))) {
@@ -568,6 +573,8 @@ void scanSNMP() {
                                  statOnlinePrinters;
   BOOST_LOG_TRIVIAL(info) << boost::format("Elapsed time: %s") %
                                  printExecutionTime(start_time, end_time);
+  statOnlineDevices = 0;
+  statOnlinePrinters = 0;
 }
 
 static void initLog() {
@@ -601,17 +608,17 @@ static void initLog() {
 void print(const boost::system::error_code & /*e*/,
            boost::asio::deadline_timer *t, int *count) {
   scanSNMP();
-  auto dt = t->expires_at() + boost::posix_time::seconds(100);
+  auto dt = t->expires_at() + boost::posix_time::hours(8);
   BOOST_LOG_TRIVIAL(info) << boost::format("Next scan will start at: %s") % dt;
 
-  t->expires_at(t->expires_at() + boost::posix_time::seconds(100));
+  t->expires_at(t->expires_at() + boost::posix_time::hours(8));
   t->async_wait(boost::bind(print, boost::asio::placeholders::error, t, count));
 }
 
 int main(int argc, char **argv) {
   initLog();
   parseOid();
-  initIP(true);
+  initIP(!true);
 
   boost::asio::io_service io;
   int count = 0;

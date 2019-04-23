@@ -57,25 +57,25 @@ void formatModel(std::string str) {
     boost::split(details, str, boost::is_any_of(" "));
     // If I iterate through the vector there is only one element "John" and not
     // all ?
-  /*
-   * for (std::vector<std::string>::iterator pos = details.begin();
-         pos != details.end(); ++pos) {
-      cout << *pos << endl;
-    }
-*/
+    /*
+     * for (std::vector<std::string>::iterator pos = details.begin();
+           pos != details.end(); ++pos) {
+        cout << *pos << endl;
+      }
+  */
     try {
       str = details.at(0) + " " + details.at(1);
     } catch (std::out_of_range o) {
       std::cout << o.what() << std::endl;
     }
-
-
   }
 
   cout << str << "\n";
 }
 
 int main() {
+  char *s = "Hello, World!";
+  formatModel(strdup(s));
   formatModel("Lexmark E450dn 6215V65 LM.SZ.P113");
   return 0;
 }

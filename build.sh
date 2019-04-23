@@ -1,0 +1,1 @@
+/home/user/.local/share/JetBrains/Toolbox/apps/CLion/ch-0/191.6707.69/bin/cmake/linux/bin/cmake --build /home/user/UbuntuProject/cmake-build-debug --target snmp_mongo -- -j 4

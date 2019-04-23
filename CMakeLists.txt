@@ -5,7 +5,7 @@ SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pthread")
 set(CMAKE_VERBOSE_MAKEFILE OFF)
 set(CMAKE_CXX_STANDARD 11)
 set(BOOST_ROOT /home/user/boost_1_70_0)
-set(BOOST_INCLUDEDIR /home/user/boost_1_7_0)
+set(BOOST_INCLUDEDIR /home/user/boost_1_70_0)
 set(BOOST_LIBRARYDIR /home/user/boost_1_70_0/stage/lib)
 include_directories(
         /usr/local/include/mongocxx/v_noabi
