@@ -77,7 +77,7 @@ struct data {
 int statOnlineDevices = 0;
 int statOnlinePrinters = 0;
 
-const std::string host = "192.168.88.254";
+const std::string host = "10.159.6.38";
 const std::string db = "testdb";
 const std::string collectionName = "printers";
 const std::string collectionPagesName = "pages";
@@ -354,6 +354,7 @@ int print_result_new(int status, struct snmp_session *sp, struct snmp_pdu *pdu,
       //   fprintf(stdout, "%s - %s: %s\n", Name.c_str(), sp->peername, buf);
 
       switch (vp->type) {
+
       case 128:
       case 129: {
         // No Such ...
@@ -609,17 +610,18 @@ static void initLog() {
 void print(const boost::system::error_code & /*e*/,
            boost::asio::deadline_timer *t, int *count) {
   scanSNMP();
+  BOOST_LOG_TRIVIAL(info) << boost::format("Start at: %s") % (t->expires_at() + boost::posix_time::hours(3));
   auto dt = t->expires_at() + boost::posix_time::hours(8);
-  BOOST_LOG_TRIVIAL(info) << boost::format("Next scan will start at: %s") % dt;
-
-  t->expires_at(t->expires_at() + boost::posix_time::hours(8));
+  t->expires_at(dt);
+  BOOST_LOG_TRIVIAL(info) << boost::format("Next  at: %s") % (dt + boost::posix_time::hours(3));
+  cout << dt;
   t->async_wait(boost::bind(print, boost::asio::placeholders::error, t, count));
 }
 
 int main(int argc, char **argv) {
   initLog();
   parseOid();
-  initIP(true);
+  initIP(!true);
 
   boost::asio::io_service io;
   int count = 0;

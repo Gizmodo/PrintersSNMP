@@ -32,13 +32,9 @@ project(mongo_test)
 add_executable(mongo_test mongo_test.cpp)
 set_target_properties(mongo_test PROPERTIES OUTPUT_NAME "mongo_test")
 target_link_libraries(mongo_test
-        /usr/local/lib/libbsoncxx.so.3.4.0
-        #/usr/local/lib/libbsoncxx.so._noabi
-        /usr/local/lib/libmongocxx.so._noabi
         /home/user/boost_1_70_0/stage/lib/libboost_system.a
         /home/user/boost_1_70_0/stage/lib/libboost_thread.a
-        /home/user/boost_1_70_0/stage/lib/libboost_regex.a
-        /usr/local/lib/libnetsnmp.so
+        /home/user/boost_1_70_0/stage/lib/libboost_log.a
         )
 
 project(snmp_mongo)
