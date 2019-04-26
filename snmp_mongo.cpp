@@ -74,6 +74,7 @@ struct data {
   unsigned int IPUInt;
 } dataArray[1];
 
+void saveStatistics(int i, int i1, ClockTime point, ClockTime timePoint);
 int statOnlineDevices = 0;
 int statOnlinePrinters = 0;
 
@@ -81,6 +82,7 @@ const std::string host = "10.159.6.38";
 const std::string db = "testdb";
 const std::string collectionName = "printers";
 const std::string collectionPagesName = "pages";
+const std::string collectionStatName = "statistics";
 mongocxx::instance instance{}; // This should be done only once.
 
 const mongocxx::client client{
@@ -88,6 +90,7 @@ const mongocxx::client client{
 
 mongocxx::collection collection = client[db][collectionName];
 mongocxx::collection collectionPages = client[db][collectionPagesName];
+mongocxx::collection collectionStat = client[db][collectionStatName];
 
 std::string formatModel(std::string str) {
   boost::trim(str);
@@ -239,81 +242,6 @@ void initIP(bool devMode) {
     IPs.push_back("121.143.103.125");
     IPs.push_back("134.255.76.46");
     IPs.push_back("137.26.143.186");
-
-    IPs.push_back("163.19.200.141");
-    IPs.push_back("163.27.162.109");
-    IPs.push_back("163.27.162.61");
-    IPs.push_back("173.19.94.142");
-    IPs.push_back("18.127.2.4");
-    IPs.push_back("182.31.30.55");
-    IPs.push_back("183.98.155.134");
-    IPs.push_back("193.198.100.138");
-    IPs.push_back("193.198.93.14");
-    IPs.push_back("195.96.231.88");
-    IPs.push_back("197.50.226.137");
-    IPs.push_back("197.50.227.149");
-    IPs.push_back("200.6.169.149");
-    IPs.push_back("202.172.107.201");
-    IPs.push_back("203.253.251.146");
-    IPs.push_back("206.126.42.241");
-    IPs.push_back("210.179.32.162");
-    IPs.push_back("211.40.127.253");
-    IPs.push_back("24.213.57.102");
-    IPs.push_back("47.144.13.89");
-    IPs.push_back("5.148.131.50");
-    IPs.push_back("58.181.35.141");
-    IPs.push_back("64.185.36.123");
-    IPs.push_back("66.210.225.179");
-    IPs.push_back("80.11.188.182");
-    IPs.push_back("90.152.31.213");
-    IPs.push_back("95.97.141.123");
-    IPs.push_back("96.91.105.110");
-    IPs.push_back("98.155.108.21");
-
-    IPs.push_back("192.168.88.1");
-    IPs.push_back("192.168.88.251");
-    IPs.push_back("169.237.117.47");
-    IPs.push_back("183.108.188.25");
-    IPs.push_back("58.137.51.68");
-    IPs.push_back("103.210.24.244");
-    IPs.push_back("107.211.249.156");
-    IPs.push_back("115.160.56.153");
-    IPs.push_back("118.128.78.196");
-    IPs.push_back("121.137.133.227");
-    IPs.push_back("121.143.103.125");
-    IPs.push_back("134.255.76.46");
-    IPs.push_back("137.26.143.186");
-    IPs.push_back("153.19.67.9");
-    IPs.push_back("163.19.200.141");
-    IPs.push_back("163.27.162.109");
-    IPs.push_back("163.27.162.61");
-    IPs.push_back("173.19.94.142");
-    IPs.push_back("18.127.2.4");
-    IPs.push_back("182.31.30.55");
-    IPs.push_back("183.98.155.134");
-    IPs.push_back("193.198.100.138");
-    IPs.push_back("193.198.93.14");
-    IPs.push_back("195.96.231.88");
-    IPs.push_back("197.50.226.137");
-    IPs.push_back("197.50.227.149");
-    IPs.push_back("200.6.169.149");
-    IPs.push_back("202.172.107.201");
-    IPs.push_back("203.253.251.146");
-    IPs.push_back("206.126.42.241");
-    IPs.push_back("210.179.32.162");
-    IPs.push_back("211.40.127.253");
-    IPs.push_back("24.213.57.102");
-    IPs.push_back("47.144.13.89");
-    IPs.push_back("5.148.131.50");
-    IPs.push_back("58.181.35.141");
-    IPs.push_back("64.185.36.123");
-    IPs.push_back("66.210.225.179");
-    IPs.push_back("80.11.188.182");
-    IPs.push_back("90.152.31.213");
-    IPs.push_back("95.97.141.123");
-    IPs.push_back("96.91.105.110");
-    IPs.push_back("98.155.108.21");
-
   } else {
     for (int i = 0; i < 190; ++i) {
       for (int j = 0; j < 255; ++j) {
@@ -575,8 +503,21 @@ void scanSNMP() {
                                  statOnlinePrinters;
   BOOST_LOG_TRIVIAL(info) << boost::format("Elapsed time: %s") %
                                  printExecutionTime(start_time, end_time);
+  saveStatistics(statOnlineDevices, statOnlinePrinters, start_time, end_time);
   statOnlineDevices = 0;
-  statOnlinePrinters = 0;
+  statOnlineDevices = 0;
+}
+void saveStatistics(int totalOnline, int mfuOnline, ClockTime startTime,
+                    ClockTime endTime) {
+  auto builderPages = bsoncxx::builder::stream::document{};
+  bsoncxx::document::value stat_value =
+      builderPages << "totalOnline" << totalOnline << "mfuOnline" << mfuOnline
+                   << "startScan" << bsoncxx::types::b_date(startTime)
+                   << "endScan" << bsoncxx::types::b_date(endTime)
+                   << bsoncxx::builder::stream::finalize;
+
+  collectionStat.insert_one(stat_value.view());
+  BOOST_LOG_TRIVIAL(info) << boost::format(" Save info about work");
 }
 
 static void initLog() {
@@ -610,10 +551,13 @@ static void initLog() {
 void print(const boost::system::error_code & /*e*/,
            boost::asio::deadline_timer *t, int *count) {
   scanSNMP();
-  BOOST_LOG_TRIVIAL(info) << boost::format("Start at: %s") % (t->expires_at() + boost::posix_time::hours(3));
+  BOOST_LOG_TRIVIAL(info) << boost::format("Start at: %s") %
+                                 (t->expires_at() +
+                                  boost::posix_time::hours(3));
   auto dt = t->expires_at() + boost::posix_time::hours(8);
   t->expires_at(dt);
-  BOOST_LOG_TRIVIAL(info) << boost::format("Next  at: %s") % (dt + boost::posix_time::hours(3));
+  BOOST_LOG_TRIVIAL(info) << boost::format("Next  at: %s") %
+                                 (dt + boost::posix_time::hours(3));
   cout << dt;
   t->async_wait(boost::bind(print, boost::asio::placeholders::error, t, count));
 }
